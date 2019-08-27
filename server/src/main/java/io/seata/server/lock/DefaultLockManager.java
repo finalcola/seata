@@ -47,6 +47,7 @@ public class DefaultLockManager extends AbstractLockManager {
             //no lock
             return true;
         }
+        // 获取锁
         return getLocker(branchSession).acquireLock(locks);
     }
 
@@ -65,6 +66,7 @@ public class DefaultLockManager extends AbstractLockManager {
         }
     }
 
+    // 是否可加锁
     @Override
     public boolean isLockable(String xid, String resourceId, String lockKey) throws TransactionException {
         List<RowLock> locks = collectRowLocks(lockKey, resourceId, xid);

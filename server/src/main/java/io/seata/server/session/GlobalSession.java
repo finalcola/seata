@@ -72,6 +72,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
 
     private final ArrayList<BranchSession> branchSessions = new ArrayList<>();
 
+    // 内部使用ReentrantLock实现
     private GlobalSessionLock globalSessionLock = new GlobalSessionLock();
 
     /**
@@ -98,6 +99,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
 
     /**
      * Can be committed async boolean.
+     * 是否可以异步提交（分支事务需要都是TCC模式）
      *
      * @return the boolean
      */
@@ -124,6 +126,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
         this.status = GlobalStatus.Begin;
         this.beginTime = System.currentTimeMillis();
         this.active = true;
+        // 通知监听器记录session
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
             lifecycleListener.onBegin(this);
         }
@@ -142,6 +145,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
     public void changeBranchStatus(BranchSession branchSession, BranchStatus status)
         throws TransactionException {
         branchSession.setStatus(status);
+        // 通知状态更新
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
             lifecycleListener.onBranchStatusChange(this, branchSession, status);
         }
@@ -164,14 +168,16 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
     @Override
     public void end() throws TransactionException {
         // Clean locks first
+        // 首先清除锁
         clean();
-
+        // 通知listener
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
             lifecycleListener.onEnd(this);
         }
 
     }
 
+    // 清除资源，是否持有的锁
     public void clean() throws TransactionException {
         for (BranchSession branchSession : branchSessions) {
             branchSession.unlock();
@@ -186,6 +192,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
      */
     public void closeAndClean() throws TransactionException {
         close();
+        // 清除资源，是否持有的锁
         clean();
 
     }
@@ -210,6 +217,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
 
     @Override
     public void addBranch(BranchSession branchSession) throws TransactionException {
+        // 通知listener
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
             lifecycleListener.onAddBranch(this, branchSession);
         }
@@ -222,6 +230,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
             lifecycleListener.onRemoveBranch(this, branchSession);
         }
+        // 释放锁，删除分支事务
         branchSession.unlock();
         remove(branchSession);
     }
@@ -571,6 +580,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
         return branchSessions.size() > 0;
     }
 
+    // 获取锁，否则抛出异常
     public void lock() throws TransactionException {
         globalSessionLock.lock();
     }
@@ -588,6 +598,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
         }
     }
 
+    // 获取锁后执行回调
     public <T> T lockAndExcute(LockCallable<T> lockCallable) throws TransactionException {
         this.lock();
         try {

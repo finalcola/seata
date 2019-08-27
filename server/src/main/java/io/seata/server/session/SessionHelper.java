@@ -77,7 +77,9 @@ public class SessionHelper {
      * @throws TransactionException the transaction exception
      */
     public static void endCommitFailed(GlobalSession globalSession) throws TransactionException {
+        // 标记事务提交失败
         globalSession.changeStatus(GlobalStatus.CommitFailed);
+        // 删除session
         globalSession.end();
     }
 
@@ -104,6 +106,7 @@ public class SessionHelper {
      * @throws TransactionException the transaction exception
      */
     public static void endRollbackFailed(GlobalSession globalSession) throws TransactionException {
+        // 修改状态、并删除
         GlobalStatus currentStatus = globalSession.getStatus();
         if (isTimeoutGlobalStatus(currentStatus)) {
             globalSession.changeStatus(GlobalStatus.TimeoutRollbackFailed);

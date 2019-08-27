@@ -83,11 +83,12 @@ public class LockerFactory {
             if (lockerMap.get(storeMode) != null) {
                 return lockerMap.get(storeMode);
             }
-            //init dataSource
+            // 初始化dataSource
             String datasourceType = CONFIG.getConfig(ConfigurationKeys.STORE_DB_DATASOURCE_TYPE);
             DataSourceGenerator dataSourceGenerator = EnhancedServiceLoader.load(DataSourceGenerator.class,
                 datasourceType);
             DataSource logStoreDataSource = dataSourceGenerator.generateDataSource();
+            // 加载对应的Locker
             locker = EnhancedServiceLoader.load(Locker.class, storeMode, new Class[] {DataSource.class},
                 new Object[] {logStoreDataSource});
             lockerMap.put(storeMode, locker);

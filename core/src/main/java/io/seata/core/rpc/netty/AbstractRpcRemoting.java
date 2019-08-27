@@ -130,15 +130,18 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
      * Init.
      */
     public void init() {
+        // 定时清理过期future
         timerExecutor.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
+                // 收集过期的future
                 List<MessageFuture> timeoutMessageFutures = new ArrayList<MessageFuture>(futures.size());
                 for (MessageFuture future : futures.values()) {
                     if (future.isTimeout()) {
                         timeoutMessageFutures.add(future);
                     }
                 }
+                // 传入null
                 for (MessageFuture messageFuture : timeoutMessageFutures) {
                     futures.remove(messageFuture.getRequestMessage().getId());
                     messageFuture.setResultMessage(null);
@@ -214,6 +217,7 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
         return sendAsyncRequest(null, channel, msg, 0);
     }
 
+    // 异步发送请求
     private Object sendAsyncRequest(String address, Channel channel, Object msg, long timeout)
         throws TimeoutException {
         if (channel == null) {
@@ -233,6 +237,7 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
         futures.put(rpcMessage.getId(), messageFuture);
 
         if (address != null) {
+            // 指定了address，将请求添加到任务队列
             ConcurrentHashMap<String, BlockingQueue<RpcMessage>> map = basketMap;
             BlockingQueue<RpcMessage> basket = map.get(address);
             if (basket == null) {
@@ -250,12 +255,14 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
             }
         } else {
             ChannelFuture future;
+            // 发送数据
             channelWriteableCheck(channel, msg);
             future = channel.writeAndFlush(rpcMessage);
             future.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) {
                     if (!future.isSuccess()) {
+                        // 发送失败
                         MessageFuture messageFuture = futures.remove(rpcMessage.getId());
                         if (messageFuture != null) {
                             messageFuture.setResultMessage(future.cause());
@@ -265,6 +272,7 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
                 }
             });
         }
+        // 等待超时时间
         if (timeout > 0) {
             try {
                 return messageFuture.get(timeout, TimeUnit.MILLISECONDS);

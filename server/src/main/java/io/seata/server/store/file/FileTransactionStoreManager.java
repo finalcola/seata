@@ -52,6 +52,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The type File transaction store manager.
+ * 通过文件保存事务
  *
  * @author jimin.jm @alibaba-inc.com
  */
@@ -74,8 +75,10 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
 
     private static final String HIS_DATA_FILENAME_POSTFIX = ".1";
 
+    // 文件事务数量
     private static final AtomicLong FILE_TRX_NUM = new AtomicLong(0);
 
+    // 刷新到磁盘的事务数量
     private static final AtomicLong FILE_FLUSH_NUM = new AtomicLong(0);
 
     private static final int MARK_SIZE = 4;
@@ -90,24 +93,29 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
 
     private static long MAX_TRX_TIMEOUT_MILLS = 30 * 60 * 1000;
 
+    // 文件上次更新的时间戳
     private static volatile long trxStartTimeMills = System.currentTimeMillis();
 
     private File currDataFile;
 
+    // 当前写入的文件
     private RandomAccessFile currRaf;
 
+    // 文件channel
     private FileChannel currFileChannel;
 
     private long recoverCurrOffset = 0;
 
     private long recoverHisOffset = 0;
 
+    // session管理器
     private SessionManager sessionManager;
 
     private String currFullFileName;
 
     private String hisFullFileName;
 
+    // 执行写入的后台任务
     private WriteDataFileRunnable writeDataFileRunnable;
 
     private ReentrantLock writeSessionLock = new ReentrantLock();
@@ -116,6 +124,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
 
     private static final int MAX_WRITE_BUFFER_SIZE = StoreConfig.getFileWriteBufferCacheSize();
 
+    // 写入缓冲区
     private final ByteBuffer writeBuffer = ByteBuffer.allocateDirect(MAX_WRITE_BUFFER_SIZE);
 
     private static final FlushDiskMode FLUSH_DISK_MODE = StoreConfig.getFlushDiskMode();
@@ -132,21 +141,25 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
      * @throws IOException the io exception
      */
     public FileTransactionStoreManager(String fullFileName, SessionManager sessionManager) throws IOException {
+        // 初始化文件通道
         initFile(fullFileName);
         fileWriteExecutor = new ThreadPoolExecutor(MAX_THREAD_WRITE, MAX_THREAD_WRITE, Integer.MAX_VALUE,
-            TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<Runnable>(),
-            new NamedThreadFactory("fileTransactionStore", MAX_THREAD_WRITE, true));
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<Runnable>(),
+                new NamedThreadFactory("fileTransactionStore", MAX_THREAD_WRITE, true));
+        // 提交写入人任务
         writeDataFileRunnable = new WriteDataFileRunnable();
         fileWriteExecutor.submit(writeDataFileRunnable);
         this.sessionManager = sessionManager;
     }
 
+    // 初始化写入文件和channel
     private void initFile(String fullFileName) throws IOException {
         this.currFullFileName = fullFileName;
         this.hisFullFileName = fullFileName + HIS_DATA_FILENAME_POSTFIX;
         try {
             currDataFile = new File(currFullFileName);
+            // 不存在则新建父级目录和文件
             if (!currDataFile.exists()) {
                 //create parent dir first
                 if (currDataFile.getParentFile() != null && !currDataFile.getParentFile().exists()) {
@@ -158,6 +171,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
                 trxStartTimeMills = currDataFile.lastModified();
             }
             lastModifiedTime = System.currentTimeMillis();
+            // 创建channel并在末尾写入
             currRaf = new RandomAccessFile(currDataFile, "rw");
             currRaf.seek(currDataFile.length());
             currFileChannel = currRaf.getChannel();
@@ -172,13 +186,16 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
         writeSessionLock.lock();
         long curFileTrxNum;
         try {
-            if (!writeDataFile(new TransactionWriteStore(session, logOperation).encode())) {
+            // 写入文件
+            if (!writeDataFile(new TransactionWriteStore(session, logOperation).encode()/*序列化session*/)) {
                 return false;
             }
+            // 更新写入时间戳
             lastModifiedTime = System.currentTimeMillis();
             curFileTrxNum = FILE_TRX_NUM.incrementAndGet();
             if (curFileTrxNum % PER_FILE_BLOCK_SIZE == 0 &&
                 (System.currentTimeMillis() - trxStartTimeMills) > MAX_TRX_TIMEOUT_MILLS) {
+                // 文件已满，生成历史文件并新建写入文件
                 return saveHistory();
             }
         } catch (Exception exx) {
@@ -187,6 +204,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
         } finally {
             writeSessionLock.unlock();
         }
+        // 刷盘
         flushDisk(curFileTrxNum, currFileChannel);
         return true;
     }
@@ -205,25 +223,33 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
     /**
      * get all overTimeSessionStorables
      * merge write file
+     * 写入所以超时的session
+     * 当前文件改名为历史文件，并新建写入文件
      *
      * @throws IOException
      */
     private boolean saveHistory() throws IOException {
         boolean result;
         try {
+            // 将超时的session写入文件
             result = findTimeoutAndSave();
+            // 提交关闭文件操作
             writeDataFileRunnable.putRequest(new CloseFileRequest(currFileChannel, currRaf));
+            // 将当前文件改名为历史文件
             Files.move(currDataFile.toPath(), new File(hisFullFileName).toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException exx) {
             LOGGER.error("save history data file error," + exx.getMessage());
             result = false;
         } finally {
+            // 新建写入文件
             initFile(currFullFileName);
         }
         return result;
     }
 
+    // 查询出超时的session并保存
     private boolean findTimeoutAndSave() throws IOException {
+        // 查询超时的session
         List<GlobalSession> globalSessionsOverMaxTimeout =
             sessionManager.findGlobalSessions(new SessionCondition(MAX_TRX_TIMEOUT_MILLS));
         if (CollectionUtils.isEmpty(globalSessionsOverMaxTimeout)) {
@@ -231,12 +257,14 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
         }
         List<byte[]> listBytes = new ArrayList<>();
         int totalSize = 0;
-        // 1. find all data and merge
+        // 1. find all data and merge。序列化session
         for (GlobalSession globalSession : globalSessionsOverMaxTimeout) {
+            // 序列化session
             TransactionWriteStore globalWriteStore = new TransactionWriteStore(globalSession, LogOperation.GLOBAL_ADD);
             byte[] data = globalWriteStore.encode();
             listBytes.add(data);
             totalSize += data.length + INT_BYTE_SIZE;
+            // 序列化包含的BranchSession
             List<BranchSession> branchSessIonsOverMaXTimeout = globalSession.getSortedBranches();
             if (null != branchSessIonsOverMaXTimeout) {
                 for (BranchSession branchSession : branchSessIonsOverMaXTimeout) {
@@ -248,7 +276,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
                 }
             }
         }
-        // 2. batch write
+        // 2. batch write。批量写入
         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(totalSize);
         for (byte[] bytes : listBytes) {
             byteBuffer.putInt(bytes.length);
@@ -307,6 +335,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
             file = new File(currFullFileName);
             currentOffset = recoverCurrOffset;
         }
+        // 读取文件记录
         if (file.exists()) {
             return parseDataFile(file, readSize, currentOffset);
         }
@@ -336,6 +365,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
         return false;
     }
 
+    // 指定offset，读取文件
     private List<TransactionWriteStore> parseDataFile(File file, int readSize, long currentOffset) {
         List<TransactionWriteStore> transactionWriteStores = new ArrayList<>(readSize);
         RandomAccessFile raf = null;
@@ -350,21 +380,27 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
             while (fileChannel.position() < size) {
                 try {
                     buffSize.clear();
+                    // 读取数据长度
                     int avilReadSize = fileChannel.read(buffSize);
                     if (avilReadSize != MARK_SIZE) {
                         break;
                     }
                     buffSize.flip();
+                    // 根据长度读取正文
                     int bodySize = buffSize.getInt();
                     byte[] byBody = new byte[bodySize];
                     ByteBuffer buffBody = ByteBuffer.wrap(byBody);
                     avilReadSize = fileChannel.read(buffBody);
+                    // 未读取完整
                     if (avilReadSize != bodySize) {
                         break;
                     }
+                    // 反序列化
                     TransactionWriteStore writeStore = new TransactionWriteStore();
                     writeStore.decode(byBody);
+                    // 添加到结果
                     transactionWriteStores.add(writeStore);
+                    // 读取到足够的数据，完成
                     if (transactionWriteStores.size() == readSize) {
                         break;
                     }
@@ -410,6 +446,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
         }
     }
 
+    // 写入session
     private boolean writeDataFile(byte[] bs) {
         if (bs == null) {
             return false;
@@ -427,9 +464,11 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
 
         byteBuffer.putInt(bs.length);
         byteBuffer.put(bs);
+        // 写入文件
         return writeDataFileByBuffer(byteBuffer);
     }
 
+    // 将buffer写入文件
     private boolean writeDataFileByBuffer(ByteBuffer byteBuffer) {
         byteBuffer.flip();
         for (int retry = 0; retry < MAX_WRITE_RETRY; retry++) {
@@ -533,12 +572,14 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
         public void run() {
             while (!stopping) {
                 try {
+                    // 从队列拉取任务并处理
                     StoreRequest storeRequest = storeRequests.poll(MAX_WAIT_TIME_MILLS, TimeUnit.MILLISECONDS);
                     handleStoreRequest(storeRequest);
                 } catch (Exception exx) {
                     LOGGER.error("write file error: {}", exx.getMessage(), exx);
                 }
             }
+            // 处理队列剩余的任务
             handleRestRequest();
         }
 
@@ -554,6 +595,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
 
         private void handleStoreRequest(StoreRequest storeRequest) {
             if (storeRequest == null) {
+                // 传入空代表需要刷盘
                 flushOnCondition(currFileChannel);
             }
             if (storeRequest instanceof SyncFlushRequest) {
@@ -566,9 +608,11 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
         }
 
         private void closeAndFlush(CloseFileRequest req) {
+            // 刷盘
             long diff = FILE_TRX_NUM.get() - FILE_FLUSH_NUM.get();
             flush(req.getFileChannel());
             FILE_FLUSH_NUM.addAndGet(diff);
+            // 关闭文件
             closeFile(currRaf);
         }
 
@@ -581,6 +625,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
         private void syncFlush(SyncFlushRequest req) {
             if (req.getCurFileTrxNum() < FILE_FLUSH_NUM.get()) {
                 long diff = FILE_TRX_NUM.get() - FILE_FLUSH_NUM.get();
+                // 刷盘
                 flush(req.getCurFileChannel());
                 FILE_FLUSH_NUM.addAndGet(diff);
             }
@@ -592,12 +637,14 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
             if (FLUSH_DISK_MODE == FlushDiskMode.SYNC_MODEL) {
                 return;
             }
+            // 存在未写盘数据
             long diff = FILE_TRX_NUM.get() - FILE_FLUSH_NUM.get();
             if (diff == 0) {
                 return;
             }
             if (diff % MAX_FLUSH_NUM == 0 ||
                 System.currentTimeMillis() - lastModifiedTime > MAX_FLUSH_TIME_MILLS) {
+                // 刷新到磁盘
                 flush(fileChannel);
                 FILE_FLUSH_NUM.addAndGet(diff);
             }

@@ -78,6 +78,7 @@ import static io.seata.core.exception.TransactionExceptionCode.FailedToSendBranc
 
 /**
  * The type Default coordinator.
+ * 事务协调组件
  */
 public class DefaultCoordinator extends AbstractTCInboundHandler
     implements TransactionMessageHandler, ResourceManagerInbound, Disposable {
@@ -136,10 +137,12 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
     private ScheduledThreadPoolExecutor undoLogDelete = new ScheduledThreadPoolExecutor(1,
         new NamedThreadFactory("UndoLogDelete", 1));
 
+    // 发送消息组件，使用netty实现
     private ServerMessageSender messageSender;
 
     private Core core = CoreFactory.get();
 
+    // 监听器通知
     private EventBus eventBus = EventBusManager.get();
 
     /**
@@ -204,6 +207,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
             request.getXid(), request.getLockKey()));
     }
 
+    // 向client发送提交分支事务请求
     @Override
     public BranchStatus branchCommit(BranchType branchType, String xid, long branchId, String resourceId,
                                      String applicationData)
@@ -216,12 +220,13 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
             request.setApplicationData(applicationData);
             request.setBranchType(branchType);
 
+            // 不存在全局事务
             GlobalSession globalSession = SessionHolder.findGlobalSession(xid);
             if (globalSession == null) {
                 return BranchStatus.PhaseTwo_Committed;
             }
             BranchSession branchSession = globalSession.getBranch(branchId);
-
+            // 向client发送提交分支事务请求（同步方式）
             BranchCommitResponse response = (BranchCommitResponse)messageSender.sendSyncRequest(resourceId,
                 branchSession.getClientId(), request);
             return response.getBranchStatus();
@@ -230,6 +235,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
         }
     }
 
+    // 回滚分支事务(向client发送回滚请求)
     @Override
     public BranchStatus branchRollback(BranchType branchType, String xid, long branchId, String resourceId,
                                        String applicationData)
@@ -259,6 +265,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
 
     /**
      * Timeout check.
+     * 检查全局session是否超时，并进行roolback
      *
      * @throws TransactionException the transaction exception
      */
@@ -275,6 +282,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
                 LOGGER.debug(globalSession.getXid() + " " + globalSession.getStatus() + " " +
                     globalSession.getBeginTime() + " " + globalSession.getTimeout());
             }
+            // 加锁后判断事务是否超时
             boolean shouldTimeout = globalSession.lockAndExcute(() -> {
                 if (globalSession.getStatus() != GlobalStatus.Begin || !globalSession.isTimeout()) {
                     return false;
@@ -296,7 +304,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
             }
             LOGGER.info(
                 "Global transaction[" + globalSession.getXid() + "] is timeout and will be rolled back.");
-
+            // 对于超时的session，提交到重试rollback队列，进行回滚
             globalSession.addSessionLifecycleListener(SessionHolder.getRetryRollbackingSessionManager());
             SessionHolder.getRetryRollbackingSessionManager().addGlobalSession(globalSession);
 
@@ -376,26 +384,31 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
 
     /**
      * Handle async committing.
+     * 处理异步提交的session，完成commit
      */
     protected void handleAsyncCommitting() {
+        // 获取异步commit的session
         Collection<GlobalSession> asyncCommittingSessions = SessionHolder.getAsyncCommittingSessionManager()
-            .allSessions();
+                .allSessions();
         if (CollectionUtils.isEmpty(asyncCommittingSessions)) {
             return;
         }
         for (GlobalSession asyncCommittingSession : asyncCommittingSessions) {
             try {
+                // 提交
                 asyncCommittingSession.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
+                // 提交全局事务（提交所有分支事务）
                 core.doGlobalCommit(asyncCommittingSession, true);
             } catch (TransactionException ex) {
                 LOGGER.info("Failed to async committing [{}] {} {}",
-                    asyncCommittingSession.getXid(), ex.getCode(), ex.getMessage());
+                        asyncCommittingSession.getXid(), ex.getCode(), ex.getMessage());
             }
         }
     }
 
     /**
      * Undo log delete.
+     * 删除undo日志
      */
     protected void undoLogDelete() {
         Map<String,Channel> rmChannels = ChannelManager.getRmChannels();
@@ -403,8 +416,10 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
             LOGGER.info("no active rm channels to delete undo log");
             return;
         }
+        // 默认保存7天的日志
         short saveDays = CONFIG.getShort(ConfigurationKeys.TRANSACTION_UNDO_LOG_SAVE_DAYS, UndoLogDeleteRequest.DEFAULT_SAVE_DAYS);
         for (Map.Entry<String, Channel> channelEntry : rmChannels.entrySet()) {
+            // 发送删除undo log的请求
             String resourceId = channelEntry.getKey();
             UndoLogDeleteRequest deleteRequest = new UndoLogDeleteRequest();
             deleteRequest.setResourceId(resourceId);
@@ -421,6 +436,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
      * Init.
      */
     public void init() {
+        // 重试rollback
         retryRollbacking.scheduleAtFixedRate(() -> {
             try {
                 handleRetryRollbacking();
@@ -429,6 +445,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
             }
         }, 0, ROLLBACKING_RETRY_PERIOD, TimeUnit.MILLISECONDS);
 
+        // 重试commit
         retryCommitting.scheduleAtFixedRate(() -> {
             try {
                 handleRetryCommitting();
@@ -437,6 +454,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
             }
         }, 0, COMMITTING_RETRY_PERIOD, TimeUnit.MILLISECONDS);
 
+        // 处理异步commit
         asyncCommitting.scheduleAtFixedRate(() -> {
             try {
                 handleAsyncCommitting();
@@ -445,6 +463,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
             }
         }, 0, ASYN_COMMITTING_RETRY_PERIOD, TimeUnit.MILLISECONDS);
 
+        // 检查超时事务并回滚
         timeoutCheck.scheduleAtFixedRate(() -> {
             try {
                 timeoutCheck();
@@ -453,6 +472,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
             }
         }, 0, TIMEOUT_RETRY_PERIOD, TimeUnit.MILLISECONDS);
 
+        // 删除undo日志
         undoLogDelete.scheduleAtFixedRate(() -> {
             try {
                 undoLogDelete();

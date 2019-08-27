@@ -67,16 +67,22 @@ public class FileBasedSessionManager extends DefaultSessionManager implements Re
 
     @Override
     public void reload() {
+        // 解析历史文件和写入文件，更新到sessionMap
         restoreSessions();
+        // 清洗session数据，移除已提交、回滚、失败的session
         washSessions();
     }
 
+    // 读取历史文件和当前日志文件，更新到sessionMap
     private void restoreSessions() {
         Map<Long, BranchSession> unhandledBranchBuffer = new HashMap<>();
 
+        // 读取历史文件，更新sessionMap
         restoreSessions(true, unhandledBranchBuffer);
+        // 读取当前文件，更新sessionMap
         restoreSessions(false, unhandledBranchBuffer);
 
+        // 处理批量session
         if (!unhandledBranchBuffer.isEmpty()) {
             unhandledBranchBuffer.values().forEach(branchSession -> {
                 String xid = branchSession.getXid();
@@ -88,6 +94,7 @@ public class FileBasedSessionManager extends DefaultSessionManager implements Re
                         LOGGER.info("GlobalSession Does Not Exists For BranchSession [" + bid + "/" + xid + "]");
                     }
                 } else {
+                    // 查询对应的BranchSession,进行更新
                     BranchSession existingBranch = found.getBranch(branchSession.getBranchId());
                     if (existingBranch == null) {
                         found.add(branchSession);
@@ -100,6 +107,7 @@ public class FileBasedSessionManager extends DefaultSessionManager implements Re
         }
     }
 
+    // 清洗session数据，移除已提交、回滚、失败的session
     private void washSessions() {
         if (sessionMap.size() > 0) {
             Iterator<Map.Entry<String, GlobalSession>> iterator = sessionMap.entrySet().iterator();
@@ -126,10 +134,12 @@ public class FileBasedSessionManager extends DefaultSessionManager implements Re
         }
     }
 
+    // 重新保存文件中的session记录
     private void restoreSessions(boolean isHistory, Map<Long, BranchSession> unhandledBranchBuffer) {
         if (!(transactionStoreManager instanceof ReloadableStore)) {
             return;
         }
+        // 重新处理文件中的session，更新sessionMap
         while (((ReloadableStore)transactionStoreManager).hasRemaining(isHistory)) {
             List<TransactionWriteStore> stores = ((ReloadableStore)transactionStoreManager).readWriteStore(READ_SIZE,
                 isHistory);
@@ -155,13 +165,16 @@ public class FileBasedSessionManager extends DefaultSessionManager implements Re
                     }
                     GlobalSession foundGlobalSession = sessionMap.get(globalSession.getXid());
                     if (foundGlobalSession == null) {
+                        // 新增
                         sessionMap.put(globalSession.getXid(), globalSession);
                     } else {
+                        // 更新
                         foundGlobalSession.setStatus(globalSession.getStatus());
                     }
                     break;
                 }
                 case GLOBAL_REMOVE: {
+                    // 从sessionMap中删除
                     GlobalSession globalSession = (GlobalSession)sessionStorable;
                     if (globalSession.getTransactionId() == 0) {
                         LOGGER.error(
@@ -178,6 +191,7 @@ public class FileBasedSessionManager extends DefaultSessionManager implements Re
                 }
                 case BRANCH_ADD:
                 case BRANCH_UPDATE: {
+                    // 批量更新和添加
                     BranchSession branchSession = (BranchSession)sessionStorable;
                     if (branchSession.getTransactionId() == 0) {
                         LOGGER.error(
@@ -187,6 +201,7 @@ public class FileBasedSessionManager extends DefaultSessionManager implements Re
                     }
                     GlobalSession foundGlobalSession = sessionMap.get(branchSession.getXid());
                     if (foundGlobalSession == null) {
+                        // 未处理的批量session
                         unhandledBranchSessions.put(branchSession.getBranchId(), branchSession);
                     } else {
                         BranchSession existingBranch = foundGlobalSession.getBranch(branchSession.getBranchId());
@@ -199,6 +214,7 @@ public class FileBasedSessionManager extends DefaultSessionManager implements Re
                     break;
                 }
                 case BRANCH_REMOVE: {
+                    // 批量删除
                     BranchSession branchSession = (BranchSession)sessionStorable;
                     String xid = branchSession.getXid();
                     long bid = branchSession.getBranchId();

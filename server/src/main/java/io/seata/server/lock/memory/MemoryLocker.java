@@ -95,6 +95,7 @@ public class MemoryLocker extends AbstractLocker {
             }
             synchronized (bucketLockMap) {
                 Long lockingTransactionId = bucketLockMap.get(pk);
+                // 锁不存在
                 if (lockingTransactionId == null) {
                     //No existing lock
                     bucketLockMap.put(pk, transactionId);
@@ -106,12 +107,13 @@ public class MemoryLocker extends AbstractLocker {
                     keysInHolder.add(pk);
 
                 } else if (lockingTransactionId.longValue() == transactionId) {
+                    // 当前对象占用锁
                     // Locked by me
                     continue;
                 } else {
                     LOGGER.info("Global lock on [" + tableName + ":" + pk + "] is holding by " + lockingTransactionId);
                     try {
-                        // Release all acquired locks.
+                        // 加锁失败，释放所有占用的锁
                         branchSession.unlock();
                     } catch (TransactionException e) {
                         throw new FrameworkException(e);

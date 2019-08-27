@@ -61,6 +61,7 @@ public class DataBaseLocker extends AbstractLocker {
             return true;
         }
         try {
+            // 尝试获取锁(查询lock表是否已经有记录)
             return lockStore.acquireLock(convertToLockDO(locks));
         } catch (Exception t) {
             LOGGER.error("AcquireLock error, locks:" + CollectionUtils.toString(locks), t);
@@ -85,6 +86,7 @@ public class DataBaseLocker extends AbstractLocker {
     @Override
     public boolean isLockable(List<RowLock> locks) {
         try {
+            // 是否可加锁
             return lockStore.isLockable(convertToLockDO(locks));
         } catch (Exception t) {
             LOGGER.error("isLockable error, locks:" + CollectionUtils.toString(locks), t);

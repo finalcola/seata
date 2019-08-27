@@ -62,7 +62,7 @@ public class LockStoreDataBaseDAO implements LockStore, Initialize {
     protected DataSource logStoreDataSource = null;
 
     /**
-     * The Lock table.
+     * 获取锁的表，默认为lock_table
      */
     protected String lockTable;
 
@@ -82,6 +82,7 @@ public class LockStoreDataBaseDAO implements LockStore, Initialize {
 
     @Override
     public void init() {
+        // 默认为locak_table
         lockTable = CONFIG.getConfig(ConfigurationKeys.LOCK_DB_TABLE, ConfigurationKeys.LOCK_DB_DEFAULT_TABLE);
         dbType = CONFIG.getConfig(ConfigurationKeys.STORE_DB_TYPE);
         if (StringUtils.isBlank(dbType)) {
@@ -117,9 +118,10 @@ public class LockStoreDataBaseDAO implements LockStore, Initialize {
                 }
             }
             boolean canLock = true;
-            //query
+            // 查询lock表的sql
             String checkLockSQL = LockStoreSqls.getCheckLockableSql(lockTable, sb.toString(), dbType);
             ps = conn.prepareStatement(checkLockSQL);
+            // 设置参数
             for (int i = 0; i < lockDOs.size(); i++) {
                 ps.setString(i + 1, lockDOs.get(i).getRowKey());
             }
@@ -127,6 +129,7 @@ public class LockStoreDataBaseDAO implements LockStore, Initialize {
             String currentXID = lockDOs.get(0).getXid();
             while (rs.next()) {
                 String dbXID = rs.getString(ServerTableColumnsName.LOCK_TABLE_XID);
+                // XID不相等，表示锁已被占
                 if (!StringUtils.equals(dbXID, currentXID)) {
                     if (LOGGER.isInfoEnabled()) {
                         String dbPk = rs.getString(ServerTableColumnsName.LOCK_TABLE_PK);
@@ -140,26 +143,31 @@ public class LockStoreDataBaseDAO implements LockStore, Initialize {
                 dbExistedRowKeys.add(rs.getString(ServerTableColumnsName.LOCK_TABLE_ROW_KEY));
             }
 
+            // 获取锁失败，回滚后返回
             if (!canLock) {
                 conn.rollback();
                 return false;
             }
+            // 计算出未获取到锁的资源
             if (CollectionUtils.isNotEmpty(dbExistedRowKeys)) {
                 unrepeatedLockDOs = lockDOs.stream().filter(lockDO -> !dbExistedRowKeys.contains(lockDO.getRowKey())).collect(Collectors.toList());
             } else {
                 unrepeatedLockDOs = lockDOs;
             }
+            // 可以获取锁，回滚后返回
             if (CollectionUtils.isEmpty(unrepeatedLockDOs)) {
                 conn.rollback();
                 return true;
             }
 
-            //lock
+            // 尝试获取锁
             for (LockDO lockDO : unrepeatedLockDOs) {
+                // 向lock表插入数据
                 if (!doAcquireLock(conn, lockDO)) {
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info("Global lock acquire failed, xid {} branchId {} pk {}", lockDO.getXid(), lockDO.getBranchId(), lockDO.getPk());
                     }
+                    // 如果获取失败则回滚
                     conn.rollback();
                     return false;
                 }

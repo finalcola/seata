@@ -91,6 +91,7 @@ public class SessionHolder {
         }
         //the store mode
         StoreMode storeMode = StoreMode.valueof(mode);
+        // 初始化sessionManager
         if (StoreMode.DB.equals(storeMode)) {
             //database store
             ROOT_SESSION_MANAGER = EnhancedServiceLoader.load(SessionManager.class, StoreMode.DB.name());
@@ -118,7 +119,7 @@ public class SessionHolder {
             //unknown store
             throw new IllegalArgumentException("unknown store mode:" + mode);
         }
-        //relaod
+        // 重新加载文件中保存的session（file）
         reload();
     }
 
@@ -126,7 +127,10 @@ public class SessionHolder {
      * Reload.
      */
     protected static void reload() {
+        // FileBasedSessionManager实现了Reloadable接口
+        // 表示基于文件的session管理器在初始化时需要重新加载
         if (ROOT_SESSION_MANAGER instanceof Reloadable) {
+            // 重新加载文件保存的session
             ((Reloadable)ROOT_SESSION_MANAGER).reload();
 
             Collection<GlobalSession> reloadedSessions = ROOT_SESSION_MANAGER.allSessions();
@@ -145,6 +149,7 @@ public class SessionHolder {
                             throw new ShouldNeverHappenException("Reloaded Session should NOT be " + globalStatus);
                         case AsyncCommitting:
                             try {
+                                // 异步提交的session，注册监听器
                                 globalSession.addSessionLifecycleListener(getAsyncCommittingSessionManager());
                                 getAsyncCommittingSessionManager().addGlobalSession(globalSession);
                             } catch (TransactionException e) {
@@ -166,6 +171,7 @@ public class SessionHolder {
                                 case Committing:
                                 case CommitRetrying:
                                     try {
+                                        // 注册committing listener
                                         globalSession.addSessionLifecycleListener(
                                             getRetryCommittingSessionManager());
                                         getRetryCommittingSessionManager().addGlobalSession(globalSession);
@@ -178,6 +184,7 @@ public class SessionHolder {
                                 case TimeoutRollbacking:
                                 case TimeoutRollbackRetrying:
                                     try {
+                                        // 注册rollback listener
                                         globalSession.addSessionLifecycleListener(
                                             getRetryRollbackingSessionManager());
                                         getRetryRollbackingSessionManager().addGlobalSession(globalSession);

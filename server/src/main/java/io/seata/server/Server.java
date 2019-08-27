@@ -60,14 +60,16 @@ public class Server {
         ParameterParser parameterParser = new ParameterParser(args);
 
         System.setProperty(ConfigurationKeys.STORE_MODE, parameterParser.getStoreMode());
-
+        // 创建netty serverBootstrap
         RpcServer rpcServer = new RpcServer(WORKING_THREADS);
+        // 设置netty的属性
         //server host
         rpcServer.setHost(parameterParser.getHost());
         //server port
         rpcServer.setListenPort(parameterParser.getPort());
         UUIDGenerator.init(parameterParser.getServerNode());
         //log store mode : file、db
+        // 初始化session存储组件
         SessionHolder.init(parameterParser.getStoreMode());
 
         DefaultCoordinator coordinator = new DefaultCoordinator(rpcServer);

@@ -121,6 +121,7 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
     public AbstractRpcRemotingServer(final NettyServerConfig nettyServerConfig,
                                      final ThreadPoolExecutor messageExecutor, final ChannelHandler... handlers) {
         super(messageExecutor);
+        // 创建netty server
         this.serverBootstrap = new ServerBootstrap();
         this.nettyServerConfig = nettyServerConfig;
         if (NettyServerConfig.enableEpoll()) {
@@ -145,6 +146,7 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
 
     @Override
     public void start() {
+        // 设置属性
         this.serverBootstrap.group(this.eventLoopGroupBoss, this.eventLoopGroupWorker)
             .channel(nettyServerConfig.SERVER_CHANNEL_CLAZZ)
             .option(ChannelOption.SO_BACKLOG, nettyServerConfig.getSoBackLogSize())
@@ -175,6 +177,7 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
         }
 
         try {
+            // 启动
             ChannelFuture future = this.serverBootstrap.bind(host, listenPort).sync();
             LOGGER.info("Server started ... ");
             RegistryFactory.getInstance().register(new InetSocketAddress(XID.getIpAddress(), XID.getPort()));

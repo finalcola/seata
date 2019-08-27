@@ -194,28 +194,33 @@ public class EnhancedServiceLoader {
         return loadFile(service, activateName, loader, null, null);
     }
 
+    // 读取"META-INF/"下的配置文件，加载SPI
     @SuppressWarnings("rawtypes")
     private static <S> S loadFile(Class<S> service, String activateName, ClassLoader loader, Class[] argTypes,
                                   Object[] args) {
         try {
             boolean foundFromCache = true;
+            // 缓存
             List<Class> extensions = providers.get(service);
             if (extensions == null) {
                 synchronized (service) {
                     extensions = providers.get(service);
                     if (extensions == null) {
+                        // 从"META-INF/services、META-INF/seata"加载配置的实现类
                         extensions = findAllExtensionClass(service, activateName, loader);
                         foundFromCache = false;
                         providers.put(service, extensions);
                     }
                 }
             }
+            // 读取"META-INF/seata/${activateName}"下的实现类（优先级更高）
             if (StringUtils.isNotEmpty(activateName)) {
                 loadFile(service, SEATA_DIRECTORY + activateName.toLowerCase() + "/", loader, extensions);
 
                 List<Class> activateExtensions = new ArrayList<Class>();
                 for (int i = 0; i < extensions.size(); i++) {
                     Class clz = extensions.get(i);
+                    // 匹配注解
                     @SuppressWarnings("unchecked")
                     LoadLevel activate = (LoadLevel)clz.getAnnotation(LoadLevel.class);
                     if (activate != null && activateName.equalsIgnoreCase(activate.name())) {
@@ -225,13 +230,15 @@ public class EnhancedServiceLoader {
 
                 extensions = activateExtensions;
             }
-
+            // 实现类为空，抛出异常
             if (extensions.isEmpty()) {
                 throw new EnhancedServiceNotFoundException(
                     "not found service provider for : " + service.getName() + "[" + activateName
                         + "] and classloader : " + ObjectUtils.toString(loader));
             }
+            // 使用最后一个实现类
             Class<?> extension = extensions.get(extensions.size() - 1);
+            // 通过反射，初始化
             S result = initInstance(service, extension, argTypes, args);
             if (!foundFromCache && LOGGER.isInfoEnabled()) {
                 LOGGER.info("load " + service.getSimpleName() + "[" + activateName + "] extension by class[" + extension
@@ -249,10 +256,12 @@ public class EnhancedServiceLoader {
         }
     }
 
+    // 从"META-INF/services、META-INF/seata"加载配置的实现类
     @SuppressWarnings("rawtypes")
     private static <S> List<Class> findAllExtensionClass(Class<S> service, String activateName, ClassLoader loader) {
         List<Class> extensions = new ArrayList<Class>();
         try {
+            // 加载META-INF下的配置文件
             loadFile(service, SERVICES_DIRECTORY, loader, extensions);
             loadFile(service, SEATA_DIRECTORY, loader, extensions);
         } catch (IOException e) {
@@ -298,7 +307,7 @@ public class EnhancedServiceLoader {
         } else {
             urls = ClassLoader.getSystemResources(fileName);
         }
-
+        // 读取文件
         if (urls != null) {
             while (urls.hasMoreElements()) {
                 java.net.URL url = urls.nextElement();
@@ -314,6 +323,7 @@ public class EnhancedServiceLoader {
                         line = line.trim();
                         if (line.length() > 0) {
                             try {
+                                // 添加实现类
                                 extensions.add(Class.forName(line, true, classLoader));
                             } catch (LinkageError | ClassNotFoundException e) {
                                 LOGGER.warn("load [{}] class fail. {}", line, e.getMessage());
