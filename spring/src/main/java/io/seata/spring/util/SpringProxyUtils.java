@@ -38,10 +38,13 @@ public class SpringProxyUtils {
      * @throws Exception the exception
      */
     public static Class<?> findTargetClass(Object proxy) throws Exception {
+        // 是否是AOP生成的代理对象
         if (AopUtils.isAopProxy(proxy)) {
+            // 获取AdvisedSupport
             AdvisedSupport advised = getAdvisedSupport(proxy);
             if (AopUtils.isJdkDynamicProxy(proxy)) {
                 TargetSource targetSource = advised.getTargetSource();
+                // 获取JDK增强的接口
                 return targetSource instanceof EmptyTargetSource ? getFirstInterfaceByAdvised(advised)
                     : targetSource.getTargetClass();
             }

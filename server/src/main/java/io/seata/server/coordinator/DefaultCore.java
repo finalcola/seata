@@ -308,6 +308,7 @@ public class DefaultCore implements Core {
             return globalSession.getStatus();
         }
 
+        // 进行回滚
         doGlobalRollback(globalSession, false);
         return globalSession.getStatus();
     }

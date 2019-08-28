@@ -35,7 +35,7 @@ import java.util.function.Function;
 
 /**
  * Netty client pool manager.
- *
+ * 用于管理netty客户端的连接
  * @author jimin.jm @alibaba-inc.com
  * @author zhaojun
  */
@@ -82,6 +82,7 @@ class NettyClientChannelManager {
     
     /**
      * Acquire netty client channel connected to remote server.
+     * 连接远程server，如果连接存在则返回，否则新建连接
      *
      * @param serverAddress server address
      * @return netty channel
@@ -99,6 +100,7 @@ class NettyClientChannelManager {
         }
         channelLocks.putIfAbsent(serverAddress, new Object());
         synchronized (channelLocks.get(serverAddress)) {
+            // 新建
             return doConnect(serverAddress);
         }
     }
@@ -152,12 +154,13 @@ class NettyClientChannelManager {
     
     /**
      * Reconnect to remote server of current transaction service group.
-     *
+     * 定时任务：从注册中心拉取事务server地址，并保持连接
      * @param transactionServiceGroup transaction service group
      */
     void reconnect(String transactionServiceGroup) {
         List<String> availList = null;
         try {
+            // 从注册中心获取事务组的地址
             availList = getAvailServerList(transactionServiceGroup);
         } catch (Exception exx) {
             LOGGER.error("Failed to get available servers: {}", exx.getMessage());
@@ -166,6 +169,7 @@ class NettyClientChannelManager {
             LOGGER.error("no available server to connect.");
             return;
         }
+        // 建立连接
         for (String serverAddress : availList) {
             try {
                 acquireChannel(serverAddress);
@@ -179,14 +183,16 @@ class NettyClientChannelManager {
     void invalidateObject(final String serverAddress, final Channel channel) throws Exception {
         nettyClientKeyPool.invalidateObject(poolKeyMap.get(serverAddress), channel);
     }
-    
+
+    // 注册channel
     void registerChannel(final String serverAddress, final Channel channel) {
         if (null != channels.get(serverAddress) && channels.get(serverAddress).isActive()) {
             return;
         }
         channels.put(serverAddress, channel);
     }
-    
+
+    // 建立连接
     private Channel doConnect(String serverAddress) {
         Channel channelToServer = channels.get(serverAddress);
         if (channelToServer != null && channelToServer.isActive()) {
@@ -194,12 +200,14 @@ class NettyClientChannelManager {
         }
         Channel channelFromPool;
         try {
+            // 连接池的key
             NettyPoolKey currentPoolKey = poolKeyFunction.apply(serverAddress);
             NettyPoolKey previousPoolKey = poolKeyMap.putIfAbsent(serverAddress, currentPoolKey);
             if (null != previousPoolKey && previousPoolKey.getMessage() instanceof RegisterRMRequest) {
                 RegisterRMRequest registerRMRequest = (RegisterRMRequest) currentPoolKey.getMessage();
                 ((RegisterRMRequest) previousPoolKey.getMessage()).setResourceIds(registerRMRequest.getResourceIds());
             }
+            // 获取channel
             channelFromPool = nettyClientKeyPool.borrowObject(poolKeyMap.get(serverAddress));
             channels.put(serverAddress, channelFromPool);
         } catch (Exception exx) {
@@ -208,7 +216,8 @@ class NettyClientChannelManager {
         }
         return channelFromPool;
     }
-    
+
+    // 从注册中心获取事务组的地址
     private List<String> getAvailServerList(String transactionServiceGroup) throws Exception {
         List<String> availList = new ArrayList<>();
         List<InetSocketAddress> availInetSocketAddressList = RegistryFactory.getInstance().lookup(

@@ -66,17 +66,24 @@ public class GlobalTransactionalInterceptor implements MethodInterceptor {
 
     @Override
     public Object invoke(final MethodInvocation methodInvocation) throws Throwable {
+        // 获取代理对象的class
         Class<?> targetClass = (methodInvocation.getThis() != null ? AopUtils.getTargetClass(methodInvocation.getThis()) : null);
+        // 获取方法声明
         Method specificMethod = ClassUtils.getMostSpecificMethod(methodInvocation.getMethod(), targetClass);
         final Method method = BridgeMethodResolver.findBridgedMethod(specificMethod);
 
+        // 获取GlobalTransactional、GlobalLock注解
         final GlobalTransactional globalTransactionalAnnotation = getAnnotation(method, GlobalTransactional.class);
         final GlobalLock globalLockAnnotation = getAnnotation(method, GlobalLock.class);
+        // 全局事务和全局锁
         if (globalTransactionalAnnotation != null) {
+            // 处理全局事务
             return handleGlobalTransaction(methodInvocation, globalTransactionalAnnotation);
         } else if (globalLockAnnotation != null) {
+            // 全局锁
             return handleGlobalLock(methodInvocation);
         } else {
+            // 调用原方法
             return methodInvocation.proceed();
         }
     }
@@ -105,10 +112,12 @@ public class GlobalTransactionalInterceptor implements MethodInterceptor {
                 }
 
                 public String name() {
+                    // 注解name属性
                     String name = globalTrxAnno.name();
                     if (!StringUtils.isNullOrEmpty(name)) {
                         return name;
                     }
+                    // 或者使用方法签名
                     return formatMethod(methodInvocation.getMethod());
                 }
 
@@ -130,11 +139,13 @@ public class GlobalTransactionalInterceptor implements MethodInterceptor {
                     for (String rbRule : globalTrxAnno.noRollbackForClassName()) {
                         rollbackRules.add(new NoRollbackRule(rbRule));
                     }
+                    // 回滚规则
                     transactionInfo.setRollbackRules(rollbackRules);
                     return transactionInfo;
                 }
             });
         } catch (TransactionalExecutor.ExecutionException e) {
+            // 根据异常，调用failureHandler处理
             TransactionalExecutor.Code code = e.getCode();
             switch (code) {
                 case RollbackDone:
@@ -159,6 +170,7 @@ public class GlobalTransactionalInterceptor implements MethodInterceptor {
         return method == null ? null : method.getAnnotation(clazz);
     }
 
+    // 生成方法签名
     private String formatMethod(Method method) {
         String paramTypes = Arrays.stream(method.getParameterTypes())
                 .map(Class::getName)

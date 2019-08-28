@@ -56,11 +56,13 @@ public final class TransactionInfo implements Serializable {
         this.rollbackRules = rollbackRules;
     }
 
+    // 是否存在匹配的回滚规则
     public boolean rollbackOn(Throwable ex) {
 
         RollbackRule winner = null;
         int deepest = Integer.MAX_VALUE;
 
+        // 匹配回滚规则
         if (this.rollbackRules != null) {
             for (RollbackRule rule : this.rollbackRules) {
                 int depth = rule.getDepth(ex);

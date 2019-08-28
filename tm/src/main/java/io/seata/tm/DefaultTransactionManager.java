@@ -41,16 +41,19 @@ import io.seata.core.rpc.netty.TmRpcClient;
  */
 public class DefaultTransactionManager implements TransactionManager {
 
+    // 开启全局事务，向tc发送GlobalBeginRequest
     @Override
     public String begin(String applicationId, String transactionServiceGroup, String name, int timeout)
         throws TransactionException {
         GlobalBeginRequest request = new GlobalBeginRequest();
         request.setTransactionName(name);
         request.setTimeout(timeout);
+        // 向tc发送GlobalBeginRequest，开启全局事务
         GlobalBeginResponse response = (GlobalBeginResponse)syncCall(request);
         if (response.getResultCode() == ResultCode.Failed) {
             throw new TransactionException(TransactionExceptionCode.BeginFailed, response.getMsg());
         }
+        // 响应结果包含tc返回的xid
         return response.getXid();
     }
 
@@ -62,6 +65,7 @@ public class DefaultTransactionManager implements TransactionManager {
         return response.getGlobalStatus();
     }
 
+    // 全局事务回滚,向tc发送GlobalRollbackRequest
     @Override
     public GlobalStatus rollback(String xid) throws TransactionException {
         GlobalRollbackRequest globalRollback = new GlobalRollbackRequest();
@@ -78,6 +82,7 @@ public class DefaultTransactionManager implements TransactionManager {
         return response.getGlobalStatus();
     }
 
+    // TmRpcClient发送请求
     private AbstractTransactionResponse syncCall(AbstractTransactionRequest request) throws TransactionException {
         try {
             return (AbstractTransactionResponse)TmRpcClient.getInstance().sendMsgWithResponse(request);

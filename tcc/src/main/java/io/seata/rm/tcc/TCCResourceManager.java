@@ -58,8 +58,10 @@ public class TCCResourceManager extends AbstractResourceManager {
      */
     @Override
     public void registerResource(Resource resource) {
-        TCCResource tccResource = (TCCResource)resource;
+        TCCResource tccResource = (TCCResource) resource;
+        // 放入缓存
         tccResourceCache.put(tccResource.getResourceId(), tccResource);
+        // 注册到server
         super.registerResource(tccResource);
     }
 

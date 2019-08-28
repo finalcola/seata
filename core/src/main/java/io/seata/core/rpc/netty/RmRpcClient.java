@@ -53,6 +53,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RmRpcClient.class);
     private ResourceManager resourceManager;
+    // 单例
     private static volatile RmRpcClient instance;
     private String customerKeys;
     private final AtomicBoolean initialized = new AtomicBoolean(false);
@@ -74,6 +75,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
      * @return the instance
      */
     public static RmRpcClient getInstance(String applicationId, String transactionServiceGroup) {
+        // 获取RmRpcClient实例
         RmRpcClient rmRpcClient = getInstance();
         rmRpcClient.setApplicationId(applicationId);
         rmRpcClient.setTransactionServiceGroup(transactionServiceGroup);
@@ -82,6 +84,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
 
     /**
      * Gets instance.
+     * 获取或创建RmRpcClient实例（会创建netty客户端）
      *
      * @return the instance
      */
@@ -152,6 +155,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
     @Override
     public void init() {
         if (initialized.compareAndSet(false, true)) {
+            // 初始化netty和定时任务
             super.init();
         }
     }
@@ -170,6 +174,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("RM will register :" + resourceIds);
             }
+            // 建立建立后会发送该请求
             RegisterRMRequest message = new RegisterRMRequest(applicationId, transactionServiceGroup);
             message.setResourceIds(resourceIds);
             return new NettyPoolKey(NettyPoolKey.TransactionRole.RMROLE, serverAddress, message);
@@ -190,11 +195,13 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
                     + ",channel:" + channel);
         }
         if (customerKeys == null) {
+            // 注册channel
             getClientChannelManager().registerChannel(serverAddress, channel);
             String dbKey = getMergedResourceKeys();
             RegisterRMRequest message = (RegisterRMRequest)requestMessage;
             if (message.getResourceIds() != null) {
                 if (!message.getResourceIds().equals(dbKey)) {
+                    // 发送注册resource请求
                     sendRegisterMessage(serverAddress, channel, dbKey);
                 }
             }
@@ -226,6 +233,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
             getClientChannelManager().reconnect(transactionServiceGroup);
             return;
         }
+        // 发送注册resource请求
         synchronized (getClientChannelManager().getChannels()) {
             for (Map.Entry<String, Channel> entry : getClientChannelManager().getChannels().entrySet()) {
                 String serverAddress = entry.getKey();
@@ -237,15 +245,16 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
             }
         }
     }
-    
+
     private void sendRegisterMessage(String serverAddress, Channel channel, String dbKey) {
+        // 发送注册RM请求
         RegisterRMRequest message = new RegisterRMRequest(applicationId, transactionServiceGroup);
         message.setResourceIds(dbKey);
         try {
             super.sendAsyncRequestWithoutResponse(channel, message);
         } catch (FrameworkException e) {
             if (e.getErrcode() == FrameworkErrorCode.ChannelIsNotWritable
-                && serverAddress != null) {
+                    && serverAddress != null) {
                 getClientChannelManager().releaseChannel(channel, serverAddress);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("remove channel:" + channel);

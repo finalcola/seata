@@ -100,6 +100,7 @@ public class DefaultFailureHandlerImpl implements FailureHandler {
 
     private boolean shouldStop(final GlobalTransaction tx, GlobalStatus required) {
         try {
+            // 检查全局事状态
             GlobalStatus status = tx.getStatus();
             LOGGER.info("transaction[" + tx.getXid() + "] current status is [" + status + "]");
             if (status == required || status == GlobalStatus.Finished) {

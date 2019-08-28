@@ -70,8 +70,10 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
     private static final long KEEP_ALIVE_TIME = Integer.MAX_VALUE;
     private static final int SCHEDULE_INTERVAL_MILLS = 5;
     private static final String MERGE_THREAD_PREFIX = "rpcMergeMessageSend";
-    
+
+    // 封装netty
     private final RpcClientBootstrap clientBootstrap;
+    // 复制管理与server之间的连接池
     private NettyClientChannelManager clientChannelManager;
     private ClientMessageListener clientMessageListener;
     private final NettyPoolKey.TransactionRole transactionRole;
@@ -81,6 +83,7 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
                                      ThreadPoolExecutor messageExecutor, NettyPoolKey.TransactionRole transactionRole) {
         super(messageExecutor);
         this.transactionRole = transactionRole;
+        // 创建netty客户端封装类，复制初始化
         clientBootstrap = new RpcClientBootstrap(nettyClientConfig, eventExecutorGroup, this, transactionRole);
         clientChannelManager = new NettyClientChannelManager(
             new NettyPoolableFactory(this, clientBootstrap), getPoolKeyFunction(), nettyClientConfig);
@@ -106,7 +109,9 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
 
     @Override
     public void init() {
+        // 设置bootstrap的属性和handler
         clientBootstrap.start();
+        // 定时任务：从注册中心拉取事务server地址，并保持连接
         timerExecutor.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
@@ -118,7 +123,9 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
             KEEP_ALIVE_TIME, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>(),
             new NamedThreadFactory(getThreadPrefix(), MAX_MERGE_SEND_THREAD));
+        // 后台循环任务：合并请求并发送
         mergeSendExecutorService.submit(new MergedSendRunnable());
+        // 清理future
         super.init();
     }
     
@@ -219,11 +226,14 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
         }
         super.exceptionCaught(ctx, cause);
     }
-    
+
     @Override
     public Object sendMsgWithResponse(Object msg, long timeout) throws TimeoutException {
+        // 负载均衡,选择一个tc地址
         String validAddress = loadBalance(getTransactionServiceGroup());
+        // 建立连接，获取channel
         Channel channel = clientChannelManager.acquireChannel(validAddress);
+        // 发送请求
         Object result = super.sendAsyncRequestWithResponse(validAddress, channel, msg, timeout);
         return result;
     }
@@ -266,11 +276,14 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
     public void destroyChannel(String serverAddress, Channel channel) {
         clientChannelManager.destroyChannel(serverAddress, channel);
     }
-    
+
+    // 负载均衡
     private String loadBalance(String transactionServiceGroup) {
         InetSocketAddress address = null;
         try {
+            // 获取节点列表
             List<InetSocketAddress> inetSocketAddressList = RegistryFactory.getInstance().lookup(transactionServiceGroup);
+            // 获取负载均衡政策选取节点（默认 Round robin ）
             address = LoadBalanceFactory.getInstance().select(inetSocketAddressList);
         } catch (Exception ex) {
             LOGGER.error(ex.getMessage());
@@ -306,6 +319,7 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
                         continue;
                     }
 
+                    // 合并发送给server的请求
                     MergedWarpMessage mergeMessage = new MergedWarpMessage();
                     while (!basket.isEmpty()) {
                         RpcMessage msg = basket.poll();
@@ -315,6 +329,7 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
                     if (mergeMessage.msgIds.size() > 1) {
                         printMergeMessageLog(mergeMessage);
                     }
+                    // 获取channel并发送
                     Channel sendChannel = null;
                     try {
                         sendChannel = clientChannelManager.acquireChannel(address);

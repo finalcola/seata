@@ -31,7 +31,7 @@ public class GlobalTransactionContext {
 
     /**
      * Try to create a new GlobalTransaction.
-     *
+     * 创建全局事务
      * @return
      */
     private static GlobalTransaction createNew() {
@@ -60,6 +60,7 @@ public class GlobalTransactionContext {
     public static GlobalTransaction getCurrentOrCreate() {
         GlobalTransaction tx = getCurrent();
         if (tx == null) {
+            // 创建全局事务
             return createNew();
         }
         return tx;

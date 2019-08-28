@@ -31,6 +31,7 @@ public class TCCResource implements Resource {
 
     private String appName;
 
+    // resourceId
     private String actionName;
 
     private Object targetBean;

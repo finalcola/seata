@@ -51,12 +51,14 @@ public class NettyPoolableFactory implements KeyedPoolableObjectFactory<NettyPoo
         this.clientBootstrap = clientBootstrap;
     }
 
+    // 连接池不存在连接时，创建新连接
     @Override
     public Channel makeObject(NettyPoolKey key) {
         InetSocketAddress address = NetUtil.toInetSocketAddress(key.getAddress());
             if (LOGGER.isInfoEnabled()) {
             LOGGER.info("NettyPool create channel to " + key);
         }
+        // 获取channel(netty与address建立连接)
         Channel tmpChannel = clientBootstrap.getNewChannel(address);
         long start = System.currentTimeMillis();
         Object response;
@@ -66,6 +68,7 @@ public class NettyPoolableFactory implements KeyedPoolableObjectFactory<NettyPoo
                 "register msg is null, role:" + key.getTransactionRole().name());
         }
         try {
+            // 发送请求
             response = rpcRemotingClient.sendAsyncRequestWithResponse(tmpChannel, key.getMessage());
             if (!isResponseSuccess(response, key.getTransactionRole())) {
                 rpcRemotingClient.onRegisterMsgFail(key.getAddress(), tmpChannel, response, key.getMessage());

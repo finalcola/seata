@@ -38,6 +38,13 @@ public class TransactionalTemplate {
 
     /**
      * Execute object.
+     * 1. 获取或创建全局事务
+     *  1.1 获取全局事务配置信息（根据注解解析）
+     * 2. 开启全局事务（begin）
+     * ... 执行自己的业务
+     * 3. 业务抛出异常时需要进行回滚
+     * 4. 正常提交
+     * 5. 清除资源
      *
      * @param business the business
      * @return the object
@@ -60,17 +67,17 @@ public class TransactionalTemplate {
             Object rs = null;
             try {
 
-                // Do Your Business
+                // 执行自己的业务
                 rs = business.execute();
 
             } catch (Throwable ex) {
 
-                // 3.the needed business exception to rollback.
+                // 3.执行业务过程中发生了异常，进行回滚
                 completeTransactionAfterThrowing(txInfo,tx,ex);
                 throw ex;
             }
 
-            // 4. everything is fine, commit.
+            // 4. 执行完成，提交全局事务
             commitTransaction(tx);
 
             return rs;
@@ -93,6 +100,7 @@ public class TransactionalTemplate {
             }
         } else {
             // not roll back on this exception, so commit
+            // 对于当前异常，没有匹配的回滚规则，则正常提交
             commitTransaction(tx);
         }
     }
@@ -111,16 +119,21 @@ public class TransactionalTemplate {
 
     private void rollbackTransaction(GlobalTransaction tx, Throwable ex) throws TransactionException, TransactionalExecutor.ExecutionException {
         triggerBeforeRollback();
+        // 事务回滚
         tx.rollback();
         triggerAfterRollback();
         // 3.1 Successfully rolled back
         throw new TransactionalExecutor.ExecutionException(tx, TransactionalExecutor.Code.RollbackDone, ex);
     }
 
+    // 开启全局事务
     private void beginTransaction(TransactionInfo txInfo, GlobalTransaction tx) throws TransactionalExecutor.ExecutionException {
         try {
+            // 模板方法，调用hook
             triggerBeforeBegin();
+            // 开启事务
             tx.begin(txInfo.getTimeOut(), txInfo.getName());
+            // 模板方法，调用hook
             triggerAfterBegin();
         } catch (TransactionException txe) {
             throw new TransactionalExecutor.ExecutionException(tx, txe,

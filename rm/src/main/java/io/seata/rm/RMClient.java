@@ -26,7 +26,7 @@ import io.seata.core.rpc.netty.RmRpcClient;
 public class RMClient {
 
     /**
-     * Init.
+     * Init.初始化RmRpcClient
      *
      * @param applicationId           the application id
      * @param transactionServiceGroup the transaction service group

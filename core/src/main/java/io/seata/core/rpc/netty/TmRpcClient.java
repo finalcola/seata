@@ -125,6 +125,7 @@ public final class TmRpcClient extends AbstractRpcRemotingClient {
     public void init() {
         if (initialized.compareAndSet(false, true)) {
             enableDegrade = CONFIG.getBoolean(ConfigurationKeys.SERVICE_PREFIX + ConfigurationKeys.ENABLE_DEGRADE_POSTFIX);
+            // 启动netty和定时任务
             super.init();
         }
     }
@@ -139,6 +140,7 @@ public final class TmRpcClient extends AbstractRpcRemotingClient {
     @Override
     protected Function<String, NettyPoolKey> getPoolKeyFunction() {
         return (severAddress) -> {
+            // 注册TM的请求
             RegisterTMRequest message = new RegisterTMRequest(applicationId, transactionServiceGroup);
             return new NettyPoolKey(NettyPoolKey.TransactionRole.TMROLE, severAddress, message);
         };
@@ -148,10 +150,11 @@ public final class TmRpcClient extends AbstractRpcRemotingClient {
     public String getTransactionServiceGroup() {
         return transactionServiceGroup;
     }
-    
+
     @Override
     public void onRegisterMsgSuccess(String serverAddress, Channel channel, Object response,
                                      AbstractMessage requestMessage) {
+        // 保存channel信息
         getClientChannelManager().registerChannel(serverAddress, channel);
     }
 

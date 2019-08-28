@@ -48,6 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Rpc client.
+ * 初始化netty客户端
  *
  * @author jimin.jm @alibaba-inc.com
  * @author zhaojun
@@ -181,6 +182,7 @@ public class RpcClientBootstrap implements RemotingClient {
      */
     public Channel getNewChannel(InetSocketAddress address) {
         Channel channel;
+        // 连接server，返回channel
         ChannelFuture f = this.bootstrap.connect(address);
         try {
             f.await(this.nettyClientConfig.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS);

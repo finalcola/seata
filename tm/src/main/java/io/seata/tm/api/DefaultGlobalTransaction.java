@@ -78,6 +78,7 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
 
     @Override
     public void begin(int timeout, String name) throws TransactionException {
+        // 非全局事务的发起者，返回
         if (role != GlobalTransactionRole.Launcher) {
             check();
             if (LOGGER.isDebugEnabled()) {
@@ -85,14 +86,18 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
             }
             return;
         }
+        // xid不为空，重复begin，抛出异常
         if (xid != null) {
             throw new IllegalStateException();
         }
         if (RootContext.getXID() != null) {
             throw new IllegalStateException();
         }
+        // 发送GlobalBeginRequest，开启全局事务，获取返回的xid
         xid = transactionManager.begin(null, null, name, timeout);
+        // 更新状态
         status = GlobalStatus.Begin;
+        // 绑定xid
         RootContext.bind(xid);
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Begin new global transaction [" + xid + "]");
@@ -127,6 +132,7 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
 
     @Override
     public void rollback() throws TransactionException {
+        // 参与者没有权限进行提交
         if (role == GlobalTransactionRole.Participant) {
             // Participant has no responsibility of committing
             if (LOGGER.isDebugEnabled()) {
@@ -138,6 +144,7 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
             throw new IllegalStateException();
         }
 
+        // 回滚
         status = transactionManager.rollback(xid);
         if (RootContext.getXID() != null) {
             if (xid.equals(RootContext.getXID())) {
@@ -154,6 +161,7 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
         if (xid == null) {
             return GlobalStatus.UnKnown;
         }
+        // 检查全局事务状态
         status = transactionManager.getStatus(xid);
         return status;
     }

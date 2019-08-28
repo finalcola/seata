@@ -61,6 +61,7 @@ public class RootContext {
 
     /**
      * declare local transactions will use global lock check for update/delete/insert/selectForUpdate SQL
+     * 声明本地事务将使用全局锁检查
      */
     public static void bindGlobalLockFlag() {
 

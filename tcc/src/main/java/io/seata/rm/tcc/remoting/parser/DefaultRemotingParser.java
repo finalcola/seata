@@ -137,6 +137,7 @@ public class DefaultRemotingParser {
      */
     public RemotingDesc getServiceDesc(Object bean, String beanName) {
         List<RemotingDesc> ret = new ArrayList<RemotingDesc>();
+        // 解析bean
         for (RemotingParser remotingParser : allRemotingParsers) {
             RemotingDesc s = remotingParser.getServiceDesc(bean, beanName);
             if (s != null) {
@@ -168,22 +169,28 @@ public class DefaultRemotingParser {
 
         Class<?> interfaceClass = remotingBeanDesc.getInterfaceClass();
         Method[] methods = interfaceClass.getMethods();
+        // 为rpc提供者注册resource
         if (isService(bean, beanName)) {
             try {
                 //service bean， registry resource
+                // 解析原bean
                 Object targetBean = remotingBeanDesc.getTargetBean();
                 for (Method m : methods) {
                     TwoPhaseBusinessAction twoPhaseBusinessAction = m.getAnnotation(TwoPhaseBusinessAction.class);
                     if (twoPhaseBusinessAction != null) {
-                        //
+                        // 解析注解并生成TCCResource
                         TCCResource tccResource = new TCCResource();
+                        // TCC bean name(作为resourceId)
                         tccResource.setActionName(twoPhaseBusinessAction.name());
                         tccResource.setTargetBean(targetBean);
+                        // 一阶段method
                         tccResource.setPrepareMethod(m);
+                        // 提交method
                         tccResource.setCommitMethodName(twoPhaseBusinessAction.commitMethod());
                         tccResource.setCommitMethod(ReflectionUtil
                             .getMethod(interfaceClass, twoPhaseBusinessAction.commitMethod(),
                                 new Class[] {BusinessActionContext.class}));
+                        // 回滚method
                         tccResource.setRollbackMethodName(twoPhaseBusinessAction.rollbackMethod());
                         tccResource.setRollbackMethod(ReflectionUtil
                             .getMethod(interfaceClass, twoPhaseBusinessAction.rollbackMethod(),

@@ -43,6 +43,7 @@ public class DefaultResourceManager implements ResourceManager {
         = new ConcurrentHashMap<>();
 
     private DefaultResourceManager() {
+        // 加载ResourceManager实现类
         initResourceManagers();
     }
 

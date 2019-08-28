@@ -70,8 +70,10 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
     private static final int DEFAULT_MODE = AT_MODE + MT_MODE;
 
     private static final Set<String> PROXYED_SET = new HashSet<>();
+    // 事务失败时，默认处理器
     private static final FailureHandler DEFAULT_FAIL_HANDLER = new DefaultFailureHandlerImpl();
 
+    // 全局事务增强
     private MethodInterceptor interceptor;
 
     private final String applicationId;
@@ -158,6 +160,7 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
         ShutdownHook.getInstance().destroyAll();
     }
 
+    // 初始化tm和rm
     private void initClient() {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Initializing Global Transaction Clients ... ");
@@ -213,15 +216,19 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
                     //TCC interceptor， proxy bean of sofa:reference/dubbo:reference, and LocalTCC
                     interceptor = new TccActionInterceptor(TCCBeanParserUtils.getRemotingDesc(beanName));
                 } else {
+                    // 获取服务的接口
                     Class<?> serviceInterface = SpringProxyUtils.findTargetClass(bean);
+                    // 如果是JDK代理，获取其代理的接口
                     Class<?>[] interfacesIfJdk = SpringProxyUtils.findInterfaces(bean);
-
+                    // 检查类或者接口的方法上是否带有@GlobalTransactional注解
                     if (!existsAnnotation(new Class[] {serviceInterface})
                         && !existsAnnotation(interfacesIfJdk)) {
+                        // 没有注解，不需要增强
                         return bean;
                     }
 
                     if (interceptor == null) {
+                        // 初始化全局事务增强
                         interceptor = new GlobalTransactionalInterceptor(failureHandlerHook);
                     }
                 }
@@ -230,8 +237,11 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
                     "Bean[" + bean.getClass().getName() + "] with name [" + beanName + "] would use interceptor ["
                         + interceptor.getClass().getName() + "]");
                 if (!AopUtils.isAopProxy(bean)) {
+                    // 增强原对象，由Spring创建代理对象，
+                    // 通过重写getAdvicesAndAdvisorsForBean方法，返回增强器interceptor完成
                     bean = super.wrapIfNecessary(bean, beanName, cacheKey);
                 } else {
+                    // 增强已经被代理过的AOP对象，在增强器中加入interceptor
                     AdvisedSupport advised = SpringProxyUtils.getAdvisedSupport(bean);
                     Advisor[] advisor = buildAdvisors(beanName, getAdvicesAndAdvisorsForBean(null, null, null));
                     for (Advisor avr : advisor) {
@@ -246,6 +256,7 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
         }
     }
 
+    // 检查class的方法上是否带有@GlobalTransactional注解
     private boolean existsAnnotation(Class<?>[] classes) {
         if (classes != null && classes.length > 0) {
             for (Class clazz : classes) {
@@ -273,6 +284,7 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
         return new MethodDesc(anno, method);
     }
 
+    // 获取增强器
     @Override
     protected Object[] getAdvicesAndAdvisorsForBean(Class beanClass, String beanName, TargetSource customTargetSource)
         throws BeansException {
@@ -287,6 +299,7 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
             }
             return;
         }
+        // 初始话tm和rm
         initClient();
 
     }

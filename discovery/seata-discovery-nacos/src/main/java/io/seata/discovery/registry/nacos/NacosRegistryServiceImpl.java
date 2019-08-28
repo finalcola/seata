@@ -120,6 +120,7 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
         if (!LISTENER_SERVICE_MAP.containsKey(clusterName)) {
             List<String> clusters = new ArrayList<>();
             clusters.add(clusterName);
+            // 拉取server节点列表
             List<Instance> firstAllInstances = getNamingInstance().getAllInstances(PRO_SERVER_ADDR_KEY, clusters);
             if (null != firstAllInstances) {
                 List<InetSocketAddress> newAddressList = new ArrayList<>();
@@ -130,13 +131,16 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
                 }
                 CLUSTER_ADDRESS_MAP.put(clusterName, newAddressList);
             }
+            // 注册监听器
             subscribe(clusterName, new EventListener() {
                 @Override
                 public void onEvent(Event event) {
                     List<Instance> instances = ((NamingEvent) event).getInstances();
+                    // 可以节点为空
                     if (null == instances && null != CLUSTER_ADDRESS_MAP.get(clusterName)) {
                         CLUSTER_ADDRESS_MAP.remove(clusterName);
                     } else if (!CollectionUtils.isEmpty(instances)) {
+                        // 更新节点列表
                         List<InetSocketAddress> newAddressList = new ArrayList<>();
                         for (Instance instance : instances) {
                             if (instance.isEnabled() && instance.isHealthy()) {
