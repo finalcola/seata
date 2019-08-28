@@ -72,7 +72,9 @@ public class Server {
         // 初始化session存储组件
         SessionHolder.init(parameterParser.getStoreMode());
 
+        // 事务协调组件
         DefaultCoordinator coordinator = new DefaultCoordinator(rpcServer);
+        // 初始化后台任务（异步提交、回滚重试、提交重试、超时处理、undoLog删除）
         coordinator.init();
         rpcServer.setHandler(coordinator);
         // register ShutdownHook
@@ -82,10 +84,11 @@ public class Server {
         if (NetUtil.isValidIp(parameterParser.getHost(), false)) {
             XID.setIpAddress(parameterParser.getHost());
         } else {
+            // 根据NetworkInterface获取本地ip
             XID.setIpAddress(NetUtil.getLocalIp());
         }
         XID.setPort(rpcServer.getListenPort());
-
+        // 初始化handler并开启netty
         rpcServer.init();
 
         System.exit(0);

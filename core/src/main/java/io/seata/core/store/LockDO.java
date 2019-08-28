@@ -37,6 +37,7 @@ public class LockDO {
 
     private String pk;
 
+    // resourceId + tableName + pk
     private String rowKey;
 
     /**

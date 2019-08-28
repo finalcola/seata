@@ -47,6 +47,7 @@ public abstract class AbstractTCInboundHandler extends AbstractExceptionHandler 
     @Override
     public GlobalBeginResponse handle(GlobalBeginRequest request, final RpcContext rpcContext) {
         GlobalBeginResponse response = new GlobalBeginResponse();
+        // 模板中定义了事务成功、失败和异常的处理(修改响应状态)
         exceptionHandleTemplate(new AbstractCallback<GlobalBeginRequest, GlobalBeginResponse>() {
             @Override
             public void execute(GlobalBeginRequest request, GlobalBeginResponse response) throws TransactionException {

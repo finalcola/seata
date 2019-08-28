@@ -62,24 +62,27 @@ public class DefaultCore implements Core {
         this.resourceManagerInbound = resourceManagerInbound;
     }
 
-    // 注册
+    // 注册分支事务，返回branchId
     @Override
     public Long branchRegister(BranchType branchType, String resourceId, String clientId, String xid,
                                String applicationData, String lockKeys) throws TransactionException {
         // 获取xid对应的全局session
         GlobalSession globalSession = assertGlobalSessionNotNull(xid);
+        // 会获取globalSession的锁
         return globalSession.lockAndExcute(() -> {
             // 检查session状态
             if (!globalSession.isActive()) {
                 throw new TransactionException(GlobalTransactionNotActive,
                         "Current Status: " + globalSession.getStatus());
             }
+            // 状态错误
             if (globalSession.getStatus() != GlobalStatus.Begin) {
                 throw new TransactionException(GlobalTransactionStatusInvalid,
                         globalSession.getStatus() + " while expecting " + GlobalStatus.Begin);
             }
             // 添加session监听器
             globalSession.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
+            // 创建分支事务
             BranchSession branchSession = SessionHelper.newBranchByGlobal(globalSession, branchType, resourceId,
                     applicationData, lockKeys, clientId);
             // 尝试获取锁
@@ -87,6 +90,7 @@ public class DefaultCore implements Core {
                 throw new TransactionException(LockKeyConflict);
             }
             try {
+                // 添加分支事务
                 globalSession.addBranch(branchSession);
             } catch (RuntimeException ex) {
                 branchSession.unlock();
@@ -129,19 +133,22 @@ public class DefaultCore implements Core {
 
     }
 
+    // 开启全局事务
     @Override
     public String begin(String applicationId, String transactionServiceGroup, String name, int timeout)
         throws TransactionException {
+        // 创建全局事务,并注册到RootSessionManager
         GlobalSession session = GlobalSession.createGlobalSession(
             applicationId, transactionServiceGroup, name, timeout);
         session.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
 
+        // 开启全局事务
         session.begin();
 
         //transaction start event
         eventBus.post(new GlobalTransactionEvent(session.getTransactionId(), GlobalTransactionEvent.ROLE_TC,
             session.getTransactionName(), session.getBeginTime(), null, session.getStatus()));
-
+        // xid（server的ip:port:transactionId）
         return session.getXid();
     }
 

@@ -45,10 +45,13 @@ public class BranchSession implements Lockable, Comparable<BranchSession>, Sessi
     private static ThreadLocal<ByteBuffer> byteBufferThreadLocal = ThreadLocal.withInitial(() -> ByteBuffer.allocate(
         MAX_BRANCH_SESSION_SIZE));
 
+    // 全局事务ID（ip:port:transactionId）
     private String xid;
 
+    // 事务ID（uuid）
     private long transactionId;
 
+    // 分支事务ID（uuid）
     private long branchId;
 
     private String resourceGroupId;

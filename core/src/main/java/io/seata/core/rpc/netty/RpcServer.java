@@ -53,6 +53,7 @@ public class RpcServer extends AbstractRpcRemotingServer implements ServerMessag
      */
     protected ServerMessageListener serverMessageListener;
 
+    // 处理事务消息（DefaultCoordinator）
     private TransactionMessageHandler transactionMessageHandler;
     private RegisterCheckAuthHandler checkAuthHandler;
 
@@ -120,13 +121,17 @@ public class RpcServer extends AbstractRpcRemotingServer implements ServerMessag
      */
     @Override
     public void init() {
+        // 清除过期future
         super.init();
+        // 设置handler
         setChannelHandlers(RpcServer.this);
+        // 创建事务消息监听器
         DefaultServerMessageListenerImpl defaultServerMessageListenerImpl = new DefaultServerMessageListenerImpl(
-            transactionMessageHandler);
+                transactionMessageHandler);
         defaultServerMessageListenerImpl.init();
         defaultServerMessageListenerImpl.setServerMessageSender(this);
         this.setServerMessageListener(defaultServerMessageListenerImpl);
+        // 启动netty
         super.start();
 
     }
@@ -151,6 +156,7 @@ public class RpcServer extends AbstractRpcRemotingServer implements ServerMessag
         if (evt instanceof IdleStateEvent) {
             debugLog("idle:" + evt);
             IdleStateEvent idleStateEvent = (IdleStateEvent)evt;
+            // client长时间没有回应，则断开连接
             if (idleStateEvent.state() == IdleState.READER_IDLE) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("channel:" + ctx.channel() + " read idle.");
@@ -289,6 +295,7 @@ public class RpcServer extends AbstractRpcRemotingServer implements ServerMessag
         if (messageExecutor.isShutdown()) {
             return;
         }
+        // 断开连接，清理资源
         handleDisconnect(ctx);
         super.channelInactive(ctx);
     }

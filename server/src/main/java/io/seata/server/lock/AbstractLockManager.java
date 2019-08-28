@@ -72,6 +72,7 @@ public abstract class AbstractLockManager implements LockManager {
 
     /**
      * Collect row locks list.
+     * 获取需要的的行级锁
      *
      * @param lockKey       the lock key
      * @param resourceId    the resource id

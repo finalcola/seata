@@ -158,6 +158,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
     @Override
     protected void doGlobalBegin(GlobalBeginRequest request, GlobalBeginResponse response, RpcContext rpcContext)
         throws TransactionException {
+        // 开启全局事务，并设置xid
         response.setXid(core.begin(rpcContext.getApplicationId(), rpcContext.getTransactionServiceGroup(),
             request.getTransactionName(), request.getTimeout()));
     }
@@ -203,6 +204,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler
     @Override
     protected void doLockCheck(GlobalLockQueryRequest request, GlobalLockQueryResponse response, RpcContext rpcContext)
         throws TransactionException {
+        // 检查是否可以获取全局锁
         response.setLockable(core.lockQuery(request.getBranchType(), request.getResourceId(),
             request.getXid(), request.getLockKey()));
     }

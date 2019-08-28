@@ -69,8 +69,10 @@ public class DefaultLockManager extends AbstractLockManager {
     // 是否可加锁
     @Override
     public boolean isLockable(String xid, String resourceId, String lockKey) throws TransactionException {
+        // 获取所需要的行级锁
         List<RowLock> locks = collectRowLocks(lockKey, resourceId, xid);
         try {
+            // 检查是否可以加锁
             return getLocker().isLockable(locks);
         } catch (Exception t) {
             LOGGER.error("isLockable error, xid:" + xid + ", resourceId:" + resourceId + ", lockKey:" + lockKey, t);

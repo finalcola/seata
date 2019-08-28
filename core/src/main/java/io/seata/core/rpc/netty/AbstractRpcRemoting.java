@@ -372,6 +372,7 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
                     LOGGER.debug(String.format("%s msgId:%s, body:%s", this, rpcMessage.getId(), rpcMessage.getBody()));
                 }
                 try {
+                    // 分发请求
                     AbstractRpcRemoting.this.messageExecutor.execute(new Runnable() {
                         @Override
                         public void run() {
@@ -398,6 +399,7 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
                     }
                 }
             } else {
+                // 处理响应,完成对应的future
                 MessageFuture messageFuture = futures.remove(rpcMessage.getId());
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(String
@@ -440,7 +442,7 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
     }
 
     /**
-     * Dispatch.
+     * Dispatch.分发请求
      *
      * @param request the request
      * @param ctx     the ctx

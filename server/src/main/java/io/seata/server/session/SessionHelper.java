@@ -49,6 +49,7 @@ public class SessionHelper {
 
         branchSession.setXid(globalSession.getXid());
         branchSession.setTransactionId(globalSession.getTransactionId());
+        // branchId由uuid生成
         branchSession.setBranchId(UUIDGenerator.generateUUID());
         branchSession.setBranchType(branchType);
         branchSession.setResourceId(resourceId);

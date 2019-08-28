@@ -139,6 +139,7 @@ public class ChannelManager {
 
     /**
      * Register rm channel.
+     * 注册rm channel
      *
      * @param resourceManagerRequest the resource manager request
      * @param channel                the channel
@@ -147,18 +148,23 @@ public class ChannelManager {
     public static void registerRMChannel(RegisterRMRequest resourceManagerRequest, Channel channel)
         throws IncompatibleVersionException {
         Version.checkVersion(resourceManagerRequest.getVersion());
+        // 解析resourceId
         Set<String> dbkeySet = dbKeytoSet(resourceManagerRequest.getResourceIds());
         RpcContext rpcContext;
         if (!IDENTIFIED_CHANNELS.containsKey(channel)) {
+            // 创建rpcContext
             rpcContext = buildChannelHolder(NettyPoolKey.TransactionRole.RMROLE, resourceManagerRequest.getVersion(),
-                resourceManagerRequest.getApplicationId(), resourceManagerRequest.getTransactionServiceGroup(),
-                resourceManagerRequest.getResourceIds(), channel);
+                    resourceManagerRequest.getApplicationId(), resourceManagerRequest.getTransactionServiceGroup(),
+                    resourceManagerRequest.getResourceIds(), channel);
+            // 关联到IDENTIFIED_CHANNELS
             rpcContext.holdInIdentifiedChannels(IDENTIFIED_CHANNELS);
         } else {
+            // 添加resource
             rpcContext = IDENTIFIED_CHANNELS.get(channel);
             rpcContext.addResources(dbkeySet);
         }
         if (null == dbkeySet || dbkeySet.isEmpty()) { return; }
+        // resourceId和rpcContext的对应关系
         for (String resourceId : dbkeySet) {
             String clientIp;
             ConcurrentMap<Integer, RpcContext> portMap = RM_CHANNELS.computeIfAbsent(resourceId, resourceIdKey -> new ConcurrentHashMap<>())

@@ -69,6 +69,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
     @Override
     public void onTrxMessage(RpcMessage request, ChannelHandlerContext ctx, ServerMessageSender sender) {
         Object message = request.getBody();
+        // 获取上下文信息
         RpcContext rpcContext = ChannelManager.getContextFromIdentified(ctx.channel());
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(
@@ -81,8 +82,10 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
         }
         if (!(message instanceof AbstractMessage)) { return; }
         if (message instanceof MergedWarpMessage) {
+            // 处理请求(多条合并)
             AbstractResultMessage[] results = new AbstractResultMessage[((MergedWarpMessage)message).msgs.size()];
             for (int i = 0; i < results.length; i++) {
+                // 处理单条请求后，合并结果
                 final AbstractMessage subMessage = ((MergedWarpMessage)message).msgs.get(i);
                 results[i] = transactionMessageHandler.onRequest(subMessage, rpcContext);
             }
@@ -90,6 +93,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
             resultMessage.setMsgs(results);
             sender.sendResponse(request, ctx.channel(), resultMessage);
         } else if (message instanceof AbstractResultMessage) {
+            // 处理响应结果
             transactionMessageHandler.onResponse((AbstractResultMessage)message, rpcContext);
         }
     }
@@ -101,6 +105,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
         boolean isSuccess = false;
         try {
             if (null == checkAuthHandler || checkAuthHandler.regResourceManagerCheckAuth(message)) {
+                // 注册RM的channel信息
                 ChannelManager.registerRMChannel(message, ctx.channel());
                 Version.putChannelVersion(ctx.channel(), message.getVersion());
                 isSuccess = true;
@@ -109,6 +114,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
             isSuccess = false;
             LOGGER.error(exx.getMessage());
         }
+        // 发送响应(成功或失败)
         sender.sendResponse(request, ctx.channel(), new RegisterRMResponse(isSuccess));
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("rm register success,message:" + message + ",channel:" + ctx.channel());
@@ -158,6 +164,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
      * Init.
      */
     public void init() {
+        // 后台任务，打印messageStrings队列中的日志
         ExecutorService mergeSendExecutorService = new ThreadPoolExecutor(MAX_LOG_SEND_THREAD, MAX_LOG_SEND_THREAD,
             KEEP_ALIVE_TIME, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(),
             new NamedThreadFactory(THREAD_PREFIX, MAX_LOG_SEND_THREAD, true));
@@ -184,6 +191,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
 
     /**
      * The type Batch log runnable.
+     * 后台任务，打印messageStrings队列中的日志
      */
     class BatchLogRunnable implements Runnable {
 

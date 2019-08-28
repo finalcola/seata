@@ -52,6 +52,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
 
     private String xid;
 
+    // 事务ID，由uuid生成
     private long transactionId;
 
     private volatile GlobalStatus status;
@@ -289,6 +290,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
      * @param timeout                 the timeout
      */
     public GlobalSession(String applicationId, String transactionServiceGroup, String transactionName, int timeout) {
+        // 生成uuid作为事务id
         this.transactionId = UUIDGenerator.generateUUID();
         this.status = GlobalStatus.Begin;
 
@@ -296,6 +298,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
         this.transactionServiceGroup = transactionServiceGroup;
         this.transactionName = transactionName;
         this.timeout = timeout;
+        // 生成xid（server的 ip:port:transactionId）
         this.xid = XID.generateXID(transactionId);
     }
 
