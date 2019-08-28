@@ -32,6 +32,7 @@ public class RMClient {
      * @param transactionServiceGroup the transaction service group
      */
     public static void init(String applicationId, String transactionServiceGroup) {
+        // 初始化rm
         RmRpcClient rmRpcClient = RmRpcClient.getInstance(applicationId, transactionServiceGroup);
         rmRpcClient.setResourceManager(DefaultResourceManager.get());
         rmRpcClient.setClientMessageListener(new RmMessageListener(DefaultRMHandler.get()));

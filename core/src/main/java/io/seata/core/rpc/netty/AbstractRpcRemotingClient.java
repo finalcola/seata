@@ -73,7 +73,7 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
 
     // 封装netty
     private final RpcClientBootstrap clientBootstrap;
-    // 复制管理与server之间的连接池
+    // 管理与server之间的连接池
     private NettyClientChannelManager clientChannelManager;
     private ClientMessageListener clientMessageListener;
     private final NettyPoolKey.TransactionRole transactionRole;
@@ -83,8 +83,9 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
                                      ThreadPoolExecutor messageExecutor, NettyPoolKey.TransactionRole transactionRole) {
         super(messageExecutor);
         this.transactionRole = transactionRole;
-        // 创建netty客户端封装类，复制初始化
+        // 创建netty客户端封装类，负责初始化
         clientBootstrap = new RpcClientBootstrap(nettyClientConfig, eventExecutorGroup, this, transactionRole);
+        // client连接管理器（连接池）
         clientChannelManager = new NettyClientChannelManager(
             new NettyPoolableFactory(this, clientBootstrap), getPoolKeyFunction(), nettyClientConfig);
     }

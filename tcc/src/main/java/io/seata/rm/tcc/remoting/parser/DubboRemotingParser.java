@@ -48,6 +48,7 @@ public class DubboRemotingParser extends AbstractedRemotingParser {
         }
         try {
             RemotingDesc serviceBeanDesc = new RemotingDesc();
+            // dubbo代理对象的接口
             Class<?> interfaceClass = (Class<?>)ReflectionUtil.invokeMethod(bean, "getInterfaceClass");
             String interfaceClassName = (String)ReflectionUtil.getFieldValue(bean, "interfaceName");
             String version = (String)ReflectionUtil.invokeMethod(bean, "getVersion");

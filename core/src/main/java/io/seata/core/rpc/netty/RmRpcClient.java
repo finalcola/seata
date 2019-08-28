@@ -100,6 +100,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
                         new NamedThreadFactory(nettyClientConfig.getRmDispatchThreadPrefix(),
                             nettyClientConfig.getClientWorkerThreads()),
                         new ThreadPoolExecutor.CallerRunsPolicy());
+                    // 创建RmRpcClient
                     instance = new RmRpcClient(nettyClientConfig, null, messageExecutor);
                 }
             }
