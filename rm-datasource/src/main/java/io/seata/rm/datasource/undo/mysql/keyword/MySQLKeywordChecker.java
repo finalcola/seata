@@ -1118,6 +1118,7 @@ public class MySQLKeywordChecker implements KeywordChecker {
     }
 
 
+    // 检查是否是关键字
     @Override
     public boolean check(String fieldOrTableName) {
         if (keywordSet.contains(fieldOrTableName)) {

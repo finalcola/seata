@@ -56,14 +56,20 @@ public class DeleteExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
     @Override
     protected TableRecords beforeImage() throws SQLException {
         SQLDeleteRecognizer visitor = (SQLDeleteRecognizer) sqlRecognizer;
+        // table元数据
         TableMeta tmeta = getTableMeta(visitor.getTableName());
         ArrayList<List<Object>> paramAppenderList = new ArrayList<>();
+        // 构造快照sql
         String selectSQL = buildBeforeImageSQL(visitor, tmeta, paramAppenderList);
+        // 执行查询
         return buildTableRecords(tmeta, selectSQL, paramAppenderList);
     }
 
+    // 创建执行前快照：查询删除前的该行记录
     private String buildBeforeImageSQL(SQLDeleteRecognizer visitor, TableMeta tableMeta, ArrayList<List<Object>> paramAppenderList) {
+        // 获取关键字检查器
         KeywordChecker keywordChecker = KeywordCheckerFactory.getKeywordChecker(JdbcConstants.MYSQL);
+        // 构建where条件
         String whereCondition = buildWhereCondition(visitor, paramAppenderList);
         StringBuilder suffix = new StringBuilder(" FROM " + keywordChecker.checkAndReplace(getFromTableInSQL()));
         if (StringUtils.isNotBlank(whereCondition)) {
@@ -71,14 +77,17 @@ public class DeleteExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         }
         suffix.append(" FOR UPDATE");
         StringJoiner selectSQLAppender = new StringJoiner(", ", "SELECT ", suffix.toString());
+        // 拼接字段
         for (String column : tableMeta.getAllColumns().keySet()) {
             selectSQLAppender.add(getColumnNameInSQL(keywordChecker.checkAndReplace(column)));
         }
+        // 查询完整记录的SQL
         return selectSQLAppender.toString();
     }
 
     @Override
     protected TableRecords afterImage(TableRecords beforeImage) throws SQLException {
+        // 删除操作不需要执行后快照
         return TableRecords.empty(getTableMeta());
     }
 }

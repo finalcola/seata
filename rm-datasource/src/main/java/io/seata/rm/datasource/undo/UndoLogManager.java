@@ -109,6 +109,7 @@ public final class UndoLogManager {
 
     /**
      * Flush undo logs.
+     * 向数据库中写入undo log
      *
      * @param cp the cp
      * @throws SQLException the sql exception
@@ -125,6 +126,7 @@ public final class UndoLogManager {
         branchUndoLog.setBranchId(branchID);
         branchUndoLog.setSqlUndoLogs(connectionContext.getUndoItems());
 
+        // 解析undolog组件（默认jackson）
         UndoLogParser parser = UndoLogParserFactory.getInstance();
         byte[] undoLogContent = parser.encode(branchUndoLog);
 
@@ -132,6 +134,7 @@ public final class UndoLogManager {
             LOGGER.debug("Flushing UNDO LOG: {}", new String(undoLogContent, Constants.DEFAULT_CHARSET));
         }
 
+        // 数据库插入undo log
         insertUndoLogWithNormal(xid, branchID, buildContext(parser.getName()), undoLogContent,
             cp.getTargetConnection());
     }
@@ -288,17 +291,20 @@ public final class UndoLogManager {
     public static void batchDeleteUndoLog(Set<String> xids, Set<Long> branchIds, Connection conn) throws SQLException {
         int xidSize = xids.size();
         int branchIdSize = branchIds.size();
+        // 构建批量删除undoLog的sql
         String batchDeleteSql = toBatchDeleteUndoLogSql(xidSize, branchIdSize);
         PreparedStatement deletePST = null;
         try {
             deletePST = conn.prepareStatement(batchDeleteSql);
             int paramsIndex = 1;
+            // 设置参数
             for (Long branchId : branchIds) {
                 deletePST.setLong(paramsIndex++, branchId);
             }
             for (String xid : xids) {
                 deletePST.setString(paramsIndex++, xid);
             }
+            // 执行
             int deleteRows = deletePST.executeUpdate();
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("batch delete undo log size " + deleteRows);
@@ -340,6 +346,7 @@ public final class UndoLogManager {
         }
     }
 
+    // 构建批量删除undoLog的sql
     protected static String toBatchDeleteUndoLogSql(int xidSize, int branchIdSize) {
         StringBuilder sqlBuilder = new StringBuilder(64);
         sqlBuilder.append("DELETE FROM ")
@@ -404,6 +411,7 @@ public final class UndoLogManager {
             parser.getDefaultContent(), State.GlobalFinished, conn);
     }
 
+    // 将undolog写入数据库
     private static void insertUndoLog(String xid, long branchID, String rollbackCtx,
                                       byte[] undoLogContent, State state, Connection conn) throws SQLException {
         PreparedStatement pst = null;

@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The type Transaction propagation filter.
- *
+ * 用于传播事务，即传播xid
  * @author sharajava
  */
 @Activate(group = {Constants.PROVIDER, Constants.CONSUMER}, order = 100)
@@ -45,6 +45,7 @@ public class TransactionPropagationFilter implements Filter {
             LOGGER.debug("xid in RootContext[" + xid + "] xid in RpcContext[" + rpcXid + "]");
         }
         boolean bind = false;
+        // 绑定xid
         if (xid != null) {
             RpcContext.getContext().setAttachment(RootContext.KEY_XID, xid);
         } else {
@@ -61,6 +62,7 @@ public class TransactionPropagationFilter implements Filter {
 
         } finally {
             if (bind) {
+                // 取消绑定xid
                 String unbindXid = RootContext.unbind();
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("unbind[" + unbindXid + "] from RootContext");

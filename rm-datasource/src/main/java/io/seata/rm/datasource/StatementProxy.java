@@ -40,6 +40,7 @@ public class StatementProxy<T extends Statement> extends AbstractStatementProxy<
      */
     public StatementProxy(AbstractConnectionProxy connectionWrapper, T targetStatement, String targetSQL)
         throws SQLException {
+        // 父类封装原Statement和SQL
         super(connectionWrapper, targetStatement, targetSQL);
     }
 
@@ -61,10 +62,12 @@ public class StatementProxy<T extends Statement> extends AbstractStatementProxy<
 
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
+        // 执行SQL需要在模板中完成
         this.targetSQL = sql;
         return ExecuteTemplate.execute(this, new StatementCallback<ResultSet, T>() {
             @Override
             public ResultSet execute(Statement statement, Object... args) throws SQLException {
+                // 执行原sql
                 return statement.executeQuery((String) args[0]);
             }
         }, sql);

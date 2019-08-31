@@ -20,6 +20,7 @@ import io.seata.core.constants.ConfigurationKeys;
 
 /**
  * The type Lock retry controller.
+ * 阻塞等待全局锁资源
  *
  * @author sharajava
  */
@@ -46,10 +47,11 @@ public class LockRetryController {
      * @throws LockWaitTimeoutException the lock wait timeout exception
      */
     public void sleep(Exception e) throws LockWaitTimeoutException {
+        // 默认重试30次
         if (--lockRetryTimes < 0) {
             throw new LockWaitTimeoutException("Global lock wait timeout", e);
         }
-
+        // 默认等待10ms
         try {
             Thread.sleep(lockRetryInternal);
         } catch (InterruptedException ignore) {

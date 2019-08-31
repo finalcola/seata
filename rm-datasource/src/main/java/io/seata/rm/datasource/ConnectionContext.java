@@ -157,6 +157,7 @@ public class ConnectionContext {
 
     /**
      * Reset.
+     * 清除所有资源
      */
     public void reset() {
         this.reset(null);
@@ -164,6 +165,7 @@ public class ConnectionContext {
 
     /**
      * Reset.
+     * 清除资源
      *
      * @param xid the xid
      */

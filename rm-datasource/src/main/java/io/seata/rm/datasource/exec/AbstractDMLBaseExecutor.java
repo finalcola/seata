@@ -68,9 +68,13 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
      * @throws Exception the exception
      */
     protected T executeAutoCommitFalse(Object[] args) throws Exception {
+        // 更新前快照
         TableRecords beforeImage = beforeImage();
+        // 执行原sql
         T result = statementCallback.execute(statementProxy.getTargetStatement(), args);
+        // 更新后快照
         TableRecords afterImage = afterImage(beforeImage);
+        // 准备undo log
         prepareUndoLog(beforeImage, afterImage);
         return result;
     }
@@ -87,16 +91,21 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
         AbstractConnectionProxy connectionProxy = statementProxy.getConnectionProxy();
         LockRetryController lockRetryController = new LockRetryController();
         try {
+            // 开启本地事务
             connectionProxy.setAutoCommit(false);
             while (true) {
                 try {
+                    // 执行
                     result = executeAutoCommitFalse(args);
+                    // 提交
                     connectionProxy.commit();
                     break;
                 } catch (LockConflictException lockConflict) {
+                    // 锁资源异常，先回滚本地，等待锁资源释放
                     connectionProxy.getTargetConnection().rollback();
                     lockRetryController.sleep(lockConflict);
                 } catch (Exception exx) {
+                    // 其他异常，回滚本地，抛出异常
                     connectionProxy.getTargetConnection().rollback();
                     throw exx;
                 }
@@ -108,6 +117,7 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
             throw e;
         } finally {
             ((ConnectionProxy)connectionProxy).getContext().reset();
+            // 还原autoCommit
             connectionProxy.setAutoCommit(true);
         }
         return result;

@@ -26,6 +26,7 @@ import io.seata.core.context.RootContext;
 
 /**
  * The type Abstract statement proxy.
+ * 封装原Statement和SQL
  *
  * @author sharajava
  *
@@ -34,17 +35,17 @@ import io.seata.core.context.RootContext;
 public abstract class AbstractStatementProxy<T extends Statement> implements Statement {
 
     /**
-     * The Connection proxy.
+     * 代理连接
      */
     protected AbstractConnectionProxy connectionProxy;
 
     /**
-     * The Target statement.
+     * 原Statement
      */
     protected T targetStatement;
 
     /**
-     * The Target sql.
+     * 原SQL
      */
     protected String targetSQL;
 

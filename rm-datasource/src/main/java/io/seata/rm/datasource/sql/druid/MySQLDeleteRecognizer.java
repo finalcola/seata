@@ -83,6 +83,7 @@ public class MySQLDeleteRecognizer extends BaseRecognizer implements SQLDeleteRe
             return "";
         }
         StringBuffer sb = new StringBuffer();
+        // 将实际擦书填充到paramAppenderList和StringBuffer
         MySqlOutputVisitor visitor = super.createMySqlOutputVisitor(parametersHolder, paramAppenderList, sb);
         if (where instanceof SQLBinaryOpExpr) {
             visitor.visit((SQLBinaryOpExpr) where);

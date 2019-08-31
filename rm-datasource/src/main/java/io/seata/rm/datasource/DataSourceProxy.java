@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The type Data source proxy.
+ * dataSource封装类，返回ConnectionProxy连接
  *
  * @author sharajava
  */
@@ -72,6 +73,7 @@ public class DataSourceProxy extends AbstractDataSourceProxy implements Resource
      * @param resourceGroupId  the resource group id
      */
     public DataSourceProxy(DataSource targetDataSource, String resourceGroupId) {
+        // 父类实现委托模式
         super(targetDataSource);
         init(targetDataSource, resourceGroupId);
     }
@@ -84,7 +86,9 @@ public class DataSourceProxy extends AbstractDataSourceProxy implements Resource
         } catch (SQLException e) {
             throw new IllegalStateException("can not init dataSource", e);
         }
+        // 向RM注册dataSource(AT)
         DefaultResourceManager.get().registerResource(this);
+        // 定时刷新table的原数据
         tableMetaExcutor.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {

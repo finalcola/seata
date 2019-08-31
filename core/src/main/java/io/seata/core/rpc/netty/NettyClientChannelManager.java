@@ -200,14 +200,14 @@ class NettyClientChannelManager {
         }
         Channel channelFromPool;
         try {
-            // 连接池的key
+            // 连接池的key（包含serverAddr和初始化请求）
             NettyPoolKey currentPoolKey = poolKeyFunction.apply(serverAddress);
             NettyPoolKey previousPoolKey = poolKeyMap.putIfAbsent(serverAddress, currentPoolKey);
             if (null != previousPoolKey && previousPoolKey.getMessage() instanceof RegisterRMRequest) {
                 RegisterRMRequest registerRMRequest = (RegisterRMRequest) currentPoolKey.getMessage();
                 ((RegisterRMRequest) previousPoolKey.getMessage()).setResourceIds(registerRMRequest.getResourceIds());
             }
-            // 获取channel
+            // 获取channel（通过NettyPoolableFactory创建）
             channelFromPool = nettyClientKeyPool.borrowObject(poolKeyMap.get(serverAddress));
             channels.put(serverAddress, channelFromPool);
         } catch (Exception exx) {

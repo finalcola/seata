@@ -37,14 +37,17 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DefaultRMHandler extends AbstractRMHandler {
 
+    // 保存分支事务类型和RMHandler的对应关系
     protected static Map<BranchType, AbstractRMHandler> allRMHandlersMap
         = new ConcurrentHashMap<BranchType, AbstractRMHandler>();
 
     protected DefaultRMHandler() {
+        // 加载RMHandler的实现类（AT、TCC）
         initRMHandlers();
     }
 
     protected void initRMHandlers() {
+        // 加载RMHandler的实现类（AT、TCC）
         List<AbstractRMHandler> allRMHandlers = EnhancedServiceLoader.loadAll(AbstractRMHandler.class);
         if (CollectionUtils.isNotEmpty(allRMHandlers)) {
             for (AbstractRMHandler rmHandler : allRMHandlers) {

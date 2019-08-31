@@ -93,6 +93,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
             request.setStatus(status);
             request.setApplicationData(applicationData);
 
+            // 向TC发送BranchReportRequest
             BranchReportResponse response = (BranchReportResponse) RmRpcClient.getInstance().sendMsgWithResponse(request);
             if (response.getResultCode() == ResultCode.Failed) {
                 throw new TransactionException(response.getTransactionExceptionCode(), "Response[" + response.getMsg() + "]");

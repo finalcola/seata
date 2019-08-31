@@ -51,6 +51,7 @@ public abstract class AbstractPreparedStatementProxy extends StatementProxy<Prep
 
     /**
      * The Parameters.
+     * 用于保存实参
      */
     protected ArrayList<Object>[] parameters;
 
@@ -73,6 +74,7 @@ public abstract class AbstractPreparedStatementProxy extends StatementProxy<Prep
     public AbstractPreparedStatementProxy(AbstractConnectionProxy connectionProxy, PreparedStatement targetStatement,
                                           String targetSQL) throws SQLException {
         super(connectionProxy, targetStatement, targetSQL);
+        // 解析实参
         initParameterHolder();
     }
 
@@ -106,6 +108,7 @@ public abstract class AbstractPreparedStatementProxy extends StatementProxy<Prep
      * @param x     the x
      */
     protected void setParamByIndex(int index, Object x) {
+        /*保存参数副本*/
         parameters[--index].add(x);
     }
 

@@ -47,12 +47,14 @@ public class SQLVisitorFactory {
      * @return the sql recognizer
      */
     public static SQLRecognizer get(String sql, String dbType) {
+        // 解析SQL
         List<SQLStatement> asts = SQLUtils.parseStatements(sql, dbType);
         if (asts == null || asts.size() != 1) {
             throw new UnsupportedOperationException("Unsupported SQL: " + sql);
         }
         SQLRecognizer recognizer = null;
         SQLStatement ast = asts.get(0);
+        // 根据SQL类型，返回对象的解析器
         if (JdbcConstants.MYSQL.equalsIgnoreCase(dbType)) {
             if (ast instanceof SQLInsertStatement) {
                 recognizer = new MySQLInsertRecognizer(sql, ast);
@@ -61,6 +63,7 @@ public class SQLVisitorFactory {
             } else if (ast instanceof SQLDeleteStatement) {
                 recognizer = new MySQLDeleteRecognizer(sql, ast);
             } else if (ast instanceof SQLSelectStatement) {
+                // select for update语句才会返回分析器
                 if (((SQLSelectStatement) ast).getSelect().getFirstQueryBlock().isForUpdate()) {
                     recognizer = new MySQLSelectForUpdateRecognizer(sql, ast);
                 }

@@ -63,19 +63,21 @@ public class ExecuteTemplate {
                                                      StatementProxy<S> statementProxy,
                                                      StatementCallback<T, S> statementCallback,
                                                      Object... args) throws SQLException {
-
+        // 非全局事务和全局锁，直接执行
         if (!RootContext.inGlobalTransaction() && !RootContext.requireGlobalLock()) {
             // Just work as original statement
             return statementCallback.execute(statementProxy.getTargetStatement(), args);
         }
-
+        // 获取默认的SQL分析器
         if (sqlRecognizer == null) {
+            // 根据DB类型和SQL类型返回对应的SQL分析器
             sqlRecognizer = SQLVisitorFactory.get(
                     statementProxy.getTargetSQL(),
                     statementProxy.getConnectionProxy().getDbType());
         }
         Executor<T> executor = null;
         if (sqlRecognizer == null) {
+            // 普通执行器(不涉及全局事务)
             executor = new PlainExecutor<T, S>(statementProxy, statementCallback);
         } else {
             switch (sqlRecognizer.getSQLType()) {
@@ -98,6 +100,7 @@ public class ExecuteTemplate {
         }
         T rs = null;
         try {
+            // 执行SQL
             rs = executor.execute(args);
         } catch (Throwable ex) {
             if (!(ex instanceof SQLException)) {

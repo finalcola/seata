@@ -105,6 +105,7 @@ public class AsyncWorker implements ResourceManagerInbound {
     private static int ASYNC_COMMIT_BUFFER_LIMIT = ConfigurationFactory.getInstance().getInt(
             CLIENT_ASYNC_COMMIT_BUFFER_LIMIT, 10000);
 
+    // 异步提交的二阶段事务
     private static final BlockingQueue<Phase2Context> ASYNC_COMMIT_BUFFER = new LinkedBlockingQueue<>(ASYNC_COMMIT_BUFFER_LIMIT);
 
 
@@ -129,7 +130,7 @@ public class AsyncWorker implements ResourceManagerInbound {
             @Override
             public void run() {
                 try {
-
+                    // 删除已提交事务的undoLog
                     doBranchCommits();
 
                 } catch (Throwable e) {
@@ -145,7 +146,8 @@ public class AsyncWorker implements ResourceManagerInbound {
             return;
         }
 
-        Map<String, List<Phase2Context>> mappedContexts = new HashMap<>(DEFAULT_RESOURCE_SIZE);
+        // 拉取异步commit的任务，按照resourceId分组
+        Map<String/*resourceId*/, List<Phase2Context>> mappedContexts = new HashMap<>(DEFAULT_RESOURCE_SIZE);
         while (!ASYNC_COMMIT_BUFFER.isEmpty()) {
             Phase2Context commitContext = ASYNC_COMMIT_BUFFER.poll();
             List<Phase2Context> contextsGroupedByResourceId = mappedContexts.get(commitContext.resourceId);
@@ -179,6 +181,7 @@ public class AsyncWorker implements ResourceManagerInbound {
                     xids.add(commitContext.xid);
                     branchIds.add(commitContext.branchId);
                     int maxSize = xids.size() > branchIds.size() ? xids.size() : branchIds.size();
+                    // 达到上限，批量删除xid和branchId对应的undoLog
                     if(maxSize == UNDOLOG_DELETE_LIMIT_SIZE){
                         try {
                             if(JdbcConstants.ORACLE.equalsIgnoreCase(dataSourceProxy.getDbType())) {
@@ -198,6 +201,7 @@ public class AsyncWorker implements ResourceManagerInbound {
                     return;
                 }
 
+                // 删除剩余的undoLog
                 try {
                     if(JdbcConstants.ORACLE.equalsIgnoreCase(dataSourceProxy.getDbType())) {
                         UndoLogManagerOracle.batchDeleteUndoLog(xids, branchIds, conn);

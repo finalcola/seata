@@ -72,6 +72,7 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
         this.asyncWorker = asyncWorker;
     }
 
+    // 检查是否能获取锁资源
     @Override
     public boolean lockQuery(BranchType branchType, String resourceId, String xid, String lockKeys)
         throws TransactionException {
@@ -137,6 +138,7 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
 
     @Override
     public void init() {
+        // 初始化异步commit任务
         AsyncWorker asyncWorker = new AsyncWorker();
         asyncWorker.init();
         initAsyncWorker(asyncWorker);

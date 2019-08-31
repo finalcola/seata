@@ -63,14 +63,17 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
 
     @Override
     protected TableRecords beforeImage() throws SQLException {
+        // insert操作，不需要保存更新前快照
         return TableRecords.empty(getTableMeta());
     }
 
     @Override
     protected TableRecords afterImage(TableRecords beforeImage) throws SQLException {
         //Pk column exists or PK is just auto generated
+        // 获取插入记录的主键(sql中获取，或获取自增主键)
         List<Object> pkValues = containsPK() ? getPkValuesByColumn() : getPkValuesByAuto();
 
+        // 根据主键查询完整记录，封装为TableRecords
         TableRecords afterImage = buildTableRecords(pkValues);
 
         if (afterImage == null) {
@@ -80,6 +83,7 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         return afterImage;
     }
 
+    // 判断insert的字段中的是否包含主键（是否直接指定了主键）
     protected boolean containsPK() {
         SQLInsertRecognizer recognizer = (SQLInsertRecognizer) sqlRecognizer;
         List<String> insertColumns = recognizer.getInsertColumns();
@@ -87,18 +91,24 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         return tmeta.containsPK(insertColumns);
     }
 
+    // 从insert sql中解析主键
     protected List<Object> getPkValuesByColumn() throws SQLException {
         // insert values including PK
         SQLInsertRecognizer recognizer = (SQLInsertRecognizer) sqlRecognizer;
+        // 查询的字段
         List<String> insertColumns = recognizer.getInsertColumns();
+        // 主键名
         String pk = getTableMeta().getPkName();
         List<Object> pkValues = null;
         if (statementProxy instanceof PreparedStatementProxy) {
             PreparedStatementProxy preparedStatementProxy = (PreparedStatementProxy) statementProxy;
+            // 实参
             ArrayList<Object>[] paramters = preparedStatementProxy.getParameters();
             int insertColumnsSize = insertColumns.size();
+            // 批量插入的情况
             int cycleNums = paramters.length / insertColumnsSize;
             List<Integer> pkIndexs = new ArrayList<>(cycleNums);
+            // 主键在insert字段中的位置
             int firstPkIndex = 0;
             for (int paramIdx = 0; paramIdx < insertColumns.size(); paramIdx++) {
                 if (insertColumns.get(paramIdx).equalsIgnoreCase(pk)) {
@@ -106,9 +116,11 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
                     break;
                 }
             }
+            // 添加主键位置
             for (int i = 0; i < cycleNums; i++) {
                 pkIndexs.add(insertColumnsSize * i + firstPkIndex);
             }
+            // 主键实际值
             if (pkIndexs.size() == 1) {
                 //adapter test case
                 pkValues = preparedStatementProxy.getParamsByIndex(pkIndexs.get(0));
@@ -118,6 +130,7 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         } else {
             for (int paramIdx = 0; paramIdx < insertColumns.size(); paramIdx++) {
                 if (insertColumns.get(paramIdx).equalsIgnoreCase(pk)) {
+                    // 根据主键位置，获取sql中的value值
                     List<List<Object>> insertRows = recognizer.getInsertRows();
                     pkValues = new ArrayList<>(insertRows.size());
                     for (List<Object> row : insertRows) {
@@ -130,6 +143,7 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         if (pkValues == null) {
             throw new ShouldNeverHappenException();
         }
+        // 如果未在sql中设置主键，获取自增主键
         //pk auto generated while column exists and value is null
         if (pkValues.size() == 1 && pkValues.get(0) instanceof Null) {
             pkValues = getPkValuesByAuto();
@@ -137,18 +151,21 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         return pkValues;
     }
 
-
+    // 获取自增主键
     protected List<Object> getPkValuesByAuto() throws SQLException {
         // PK is just auto generated
         Map<String, ColumnMeta> pkMetaMap = getTableMeta().getPrimaryKeyMap();
         if (pkMetaMap.size() != 1) {
             throw new NotSupportYetException();
         }
+        // 主键元数据
         ColumnMeta pkMeta = pkMetaMap.values().iterator().next();
+        // 非自增，抛出异常
         if (!pkMeta.isAutoincrement()) {
             throw new ShouldNeverHappenException();
         }
 
+        // 获取自增主键
         ResultSet genKeys = null;
         try {
             genKeys = statementProxy.getTargetStatement().getGeneratedKeys();

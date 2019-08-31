@@ -43,6 +43,7 @@ public class ConnectionProxy extends AbstractConnectionProxy {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionProxy.class);
 
+    // 保存xid、branchId、锁、资源信息
     private ConnectionContext context = new ConnectionContext();
 
     private static final int DEFAULT_REPORT_RETRY_COUNT = 5;
@@ -103,6 +104,7 @@ public class ConnectionProxy extends AbstractConnectionProxy {
     public void checkLock(String lockKeys) throws SQLException {
         // Just check lock without requiring lock by now.
         try {
+            // 检查可获取锁
             boolean lockable = DefaultResourceManager.get().lockQuery(BranchType.AT,
                 getDataSourceProxy().getResourceId(), context.getXid(), lockKeys);
             if (!lockable) {
@@ -159,8 +161,10 @@ public class ConnectionProxy extends AbstractConnectionProxy {
     @Override
     public void commit() throws SQLException {
         if (context.inGlobalTransaction()) {
+            // 处理全局事务提交。注册分支事务，写入undo log，提交本地, 报告一阶段完成
             processGlobalTransactionCommit();
         } else if (context.isGlobalLockRequire()) {
+            // 检查是否可以获取全局锁，可以则提交本地事务
             processLocalCommitWithGlobalLocks();
         } else {
             targetConnection.commit();
@@ -168,7 +172,7 @@ public class ConnectionProxy extends AbstractConnectionProxy {
     }
 
     private void processLocalCommitWithGlobalLocks() throws SQLException {
-
+        // 检查锁资源
         checkLock(context.buildLockKeys());
         try {
             targetConnection.commit();
@@ -178,14 +182,19 @@ public class ConnectionProxy extends AbstractConnectionProxy {
         context.reset();
     }
 
+    // 处理全局事务的提交
     private void processGlobalTransactionCommit() throws SQLException {
         try {
+            // 注册分支事务
             register();
         } catch (TransactionException e) {
+            // 封装异常并抛出
             recognizeLockKeyConflictException(e);
         }
 
+        // 写入undo log
         try {
+            // 数据库写入undo log
             if (context.hasUndoLog()) {
                 if (JdbcConstants.ORACLE.equalsIgnoreCase(this.getDbType())) {
                     UndoLogManagerOracle.flushUndoLogs(this);
@@ -193,30 +202,37 @@ public class ConnectionProxy extends AbstractConnectionProxy {
                     UndoLogManager.flushUndoLogs(this);
                 }
             }
+            // 提交本地事务
             targetConnection.commit();
         } catch (Throwable ex) {
             LOGGER.error("process connectionProxy commit error: {}", ex.getMessage(), ex);
             report(false);
             throw new SQLException(ex);
         }
+        // 汇报TC该分支事务一阶段实现成功
         report(true);
         context.reset();
     }
 
+    // 发送分支事务注册请求，并设置返回的branchId
     private void register() throws TransactionException {
         Long branchId = DefaultResourceManager.get().branchRegister(BranchType.AT, getDataSourceProxy().getResourceId(),
             null, context.getXid(), null, context.buildLockKeys());
         context.setBranchId(branchId);
     }
 
+    // 回滚本地事务，并向TC汇报PhaseOne_Failed
     @Override
     public void rollback() throws SQLException {
+        // 本地事务回滚
         targetConnection.rollback();
         if (context.inGlobalTransaction()) {
             if (context.isBranchRegistered()) {
+                // 如果注册过分支事务，则汇报一阶段失败 PhaseOne_Failed
                 report(false);
             }
         }
+        // 清除资源
         context.reset();
     }
 
@@ -229,10 +245,12 @@ public class ConnectionProxy extends AbstractConnectionProxy {
         targetConnection.setAutoCommit(autoCommit);
     }
 
+    // 向TC汇报一阶段结果
     private void report(boolean commitDone) throws SQLException {
         int retry = REPORT_RETRY_COUNT;
         while (retry > 0) {
             try {
+                // 向TC汇报一阶段结果
                 DefaultResourceManager.get().branchReport(BranchType.AT, context.getXid(), context.getBranchId(),
                     (commitDone ? BranchStatus.PhaseOne_Done : BranchStatus.PhaseOne_Failed), null);
                 return;
@@ -241,6 +259,7 @@ public class ConnectionProxy extends AbstractConnectionProxy {
                     + commitDone + "] Retry Countdown: " + retry);
                 retry--;
 
+                // 重试多次依然失败，抛出异常
                 if (retry == 0) {
                     throw new SQLException("Failed to report branch status " + commitDone, ex);
                 }

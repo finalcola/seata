@@ -34,8 +34,11 @@ public class RMClient {
     public static void init(String applicationId, String transactionServiceGroup) {
         // 初始化rm
         RmRpcClient rmRpcClient = RmRpcClient.getInstance(applicationId, transactionServiceGroup);
+        // 资源管理器(会将实现委托给实现类，AT or TCC)
         rmRpcClient.setResourceManager(DefaultResourceManager.get());
+        // 资源提交、回滚、删除undo log的处理
         rmRpcClient.setClientMessageListener(new RmMessageListener(DefaultRMHandler.get()));
+        // 开启netty和定时任务
         rmRpcClient.init();
     }
 

@@ -65,6 +65,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
      */
     protected SQLRecognizer sqlRecognizer;
 
+    // 缓存table的元数据
     private TableMeta tableMeta;
 
     /**
@@ -83,16 +84,18 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
 
     @Override
     public Object execute(Object... args) throws Throwable {
+        // 执行SQL前为statement绑定xid
         if (RootContext.inGlobalTransaction()) {
             String xid = RootContext.getXID();
             statementProxy.getConnectionProxy().bind(xid);
         }
-
+        // 设置是否需要持有全局锁
         if (RootContext.requireGlobalLock()) {
             statementProxy.getConnectionProxy().setGlobalLockRequire(true);
         } else {
             statementProxy.getConnectionProxy().setGlobalLockRequire(false);
         }
+        // 模板方法
         return doExecute(args);
     }
 
@@ -131,6 +134,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
     protected String buildWhereCondition(WhereRecognizer recognizer, ArrayList<List<Object>> paramAppenderList) {
         String whereCondition = null;
         if (statementProxy instanceof ParametersHolder) {
+            // prepareStatement：将实际参数添加到paramAppenderList
             whereCondition = recognizer.getWhereCondition((ParametersHolder) statementProxy, paramAppenderList);
         } else {
             whereCondition = recognizer.getWhereCondition();
@@ -139,6 +143,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
         if (StringUtils.isNotBlank(whereCondition) && CollectionUtils.isNotEmpty(paramAppenderList) && paramAppenderList.size() > 1) {
             StringBuilder whereConditionSb = new StringBuilder();
             whereConditionSb.append(" ( ").append(whereCondition).append(" ) ");
+            // 处理批量select
             for (int i = 1; i < paramAppenderList.size(); i++) {
                 whereConditionSb.append(" or ( ").append(whereCondition).append(" ) ");
             }
@@ -171,6 +176,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
 
     /**
      * Gets table meta.
+     * 获取table的元数据
      *
      * @return the table meta
      */
@@ -180,14 +186,17 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
 
     /**
      * Gets table meta.
+     * 获取table的元数据
      *
      * @param tableName the table name
      * @return the table meta
      */
     protected TableMeta getTableMeta(String tableName) {
+        // cache
         if (tableMeta != null) {
             return tableMeta;
         }
+        // 查询table元数据
         if (JdbcConstants.ORACLE.equalsIgnoreCase(statementProxy.getConnectionProxy().getDbType())) {
             tableMeta = TableMetaCacheOracle.getTableMeta(statementProxy.getConnectionProxy().getDataSourceProxy(), tableName);
         } else {
@@ -209,18 +218,20 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
         }
 
         ConnectionProxy connectionProxy = statementProxy.getConnectionProxy();
-
+        // 删除操作使用
         TableRecords lockKeyRecords = sqlRecognizer.getSQLType() == SQLType.DELETE ? beforeImage : afterImage;
+        // 添加需要的资源
         String lockKeys = buildLockKey(lockKeyRecords);
         connectionProxy.appendLockKey(lockKeys);
 
+        // 创建undo log
         SQLUndoLog sqlUndoLog = buildUndoItem(beforeImage, afterImage);
         connectionProxy.appendUndoLog(sqlUndoLog);
     }
 
     /**
      * build lockKey
-     *
+     * 创建lockKey（tableName:pk1,pk2）
      * @param rowsIncludingPK the records
      * @return the string
      */
@@ -264,7 +275,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
 
     /**
      * build a BeforeImage
-     *
+     * 创建执行前镜像
      * @param tableMeta         the tableMeta
      * @param selectSQL         the selectSQL
      * @param paramAppenderList the paramAppender list
@@ -278,9 +289,11 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
         ResultSet rs = null;
         try {
             if (paramAppenderList.isEmpty()) {
+                // 没有预编译参数，直接执行sql
                 st = statementProxy.getConnection().createStatement();
                 rs = st.executeQuery(selectSQL);
             } else {
+                // 使用prepareStatement设置参数后，执行sql
                 if (paramAppenderList.size() == 1) {
                     ps = statementProxy.getConnection().prepareStatement(selectSQL);
                     List<Object> paramAppender = paramAppenderList.get(0);
@@ -288,6 +301,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
                         ps.setObject(i + 1, paramAppender.get(i));
                     }
                 } else {
+                    // 批量查询
                     ps = statementProxy.getConnection().prepareStatement(selectSQL);
                     List<Object> paramAppender = null;
                     for (int i = 0; i < paramAppenderList.size(); i++) {
@@ -299,6 +313,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
                 }
                 rs = ps.executeQuery();
             }
+            // 解析查询结果
             tableRecords = TableRecords.buildRecords(tableMeta, rs);
         } finally {
             if (rs != null) {
@@ -316,6 +331,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
 
     /**
      * build TableRecords
+     * 根据主键查询完整记录，封装为TableRecords
      *
      * @param pkValues the pkValues
      * @return return TableRecords;
@@ -324,6 +340,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
     protected TableRecords buildTableRecords(List<Object> pkValues) throws SQLException {
         TableRecords afterImage;
         String pk = getTableMeta().getPkName();
+        // 拼接主键查询的sql
         StringJoiner pkValuesJoiner = new StringJoiner(" OR ", "SELECT * FROM " + getTableMeta().getTableName() + " WHERE ", "");
         for (Object pkValue : pkValues) {
             pkValuesJoiner.add(pk + "=?");
@@ -331,6 +348,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
+            // 执行sql
             ps = statementProxy.getConnection().prepareStatement(pkValuesJoiner.toString());
 
             for (int i = 1; i <= pkValues.size(); i++) {
@@ -338,6 +356,7 @@ public abstract class BaseTransactionalExecutor<T, S extends Statement> implemen
             }
 
             rs = ps.executeQuery();
+            // 根据结果封装
             afterImage = TableRecords.buildRecords(getTableMeta(), rs);
 
         } finally {

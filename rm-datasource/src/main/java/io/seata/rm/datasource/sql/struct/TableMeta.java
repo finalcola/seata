@@ -108,7 +108,7 @@ public class TableMeta {
 
     /**
      * Gets primary key map.
-     *
+     * 获取table的主键信息
      * @return the primary key map
      */
     public Map<String, ColumnMeta> getPrimaryKeyMap() {
@@ -122,6 +122,7 @@ public class TableMeta {
             }
         }
 
+        // 主键个数错误
         if (pk.size() > 1) {
             throw new NotSupportYetException("Multi PK");
         }
@@ -131,6 +132,7 @@ public class TableMeta {
 
     /**
      * Gets primary key only name.
+     * 主键字段名
      *
      * @return the primary key only name
      */
@@ -163,6 +165,7 @@ public class TableMeta {
             return false;
         }
 
+        // 获取主键名称
         List<String> pk = getPrimaryKeyOnlyName();
         if (pk.isEmpty()) {
             return false;

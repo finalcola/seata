@@ -70,6 +70,7 @@ public class TableMetaCache {
         final String key = getCacheKey(dataSourceProxy, tableName);
         tmeta = TABLE_META_CACHE.get(key, mappingFunction -> {
             try {
+                // 解析ResultSet中返回的元数据，封装为TableMeta
                 return fetchSchema(dataSourceProxy.getTargetDataSource(), tableName);
             } catch (SQLException e) {
                 LOGGER.error("get cache error:{}", e.getMessage(), e);
@@ -113,22 +114,26 @@ public class TableMetaCache {
         }
     }
 
+    // 查询table的schema，解析rs.getMetaData和conn.getMetaData
     private static TableMeta fetchSchema(DataSource dataSource, String tableName) throws SQLException {
         return fetchSchemeInDefaultWay(dataSource, tableName);
     }
 
+    // 普通select SQL语句，获取
     private static TableMeta fetchSchemeInDefaultWay(DataSource dataSource, String tableName)
         throws SQLException {
         Connection conn = null;
         Statement stmt = null;
         ResultSet rs = null;
         try {
+            // 执行简单的查询语句
             conn = dataSource.getConnection();
             stmt = conn.createStatement();
             StringBuilder builder = new StringBuilder("SELECT * FROM ");
             builder.append(tableName);
             builder.append(" LIMIT 1");
             rs = stmt.executeQuery(builder.toString());
+            // 解析元数据
             ResultSetMetaData rsmd = rs.getMetaData();
             DatabaseMetaData dbmd = conn.getMetaData();
 
@@ -213,6 +218,7 @@ public class TableMetaCache {
         return tm;
     }
 
+    // 解析ResultSet中返回的元数据，封装为TableMeta
     private static TableMeta resultSetMetaToSchema(ResultSetMetaData rsmd, DatabaseMetaData dbmd, String tableName)
         throws SQLException {
         String schemaName = rsmd.getSchemaName(1);
@@ -223,6 +229,7 @@ public class TableMetaCache {
 
         ResultSet rs1 = dbmd.getColumns(catalogName, schemaName, tableName, "%");
         while (rs1.next()) {
+            // 解析每个字段的元数据
             ColumnMeta col = new ColumnMeta();
             col.setTableCat(rs1.getString("TABLE_CAT"));
             col.setTableSchemaName(rs1.getString("TABLE_SCHEM"));
@@ -246,14 +253,17 @@ public class TableMetaCache {
             tm.getAllColumns().put(col.getColumnName(), col);
         }
 
+        // 解析索引信息
         ResultSet rs2 = dbmd.getIndexInfo(catalogName, schemaName, tableName, false, true);
         String indexName = "";
         while (rs2.next()) {
             indexName = rs2.getString("INDEX_NAME");
             String colName = rs2.getString("COLUMN_NAME");
+            // 上面解析的字段
             ColumnMeta col = tm.getAllColumns().get(colName);
 
             if (tm.getAllIndexes().containsKey(indexName)) {
+                // 已有该索引，添加该字段
                 IndexMeta index = tm.getAllIndexes().get(indexName);
                 index.getValues().add(col);
             } else {
@@ -267,6 +277,7 @@ public class TableMetaCache {
                 index.setAscOrDesc(rs2.getString("ASC_OR_DESC"));
                 index.setCardinality(rs2.getInt("CARDINALITY"));
                 index.getValues().add(col);
+                // 索引类型
                 if ("PRIMARY".equalsIgnoreCase(indexName) || indexName.equalsIgnoreCase(
                     rsmd.getTableName(1) + "_pkey")) {
                     index.setIndextype(IndexType.PRIMARY);
@@ -279,6 +290,7 @@ public class TableMetaCache {
 
             }
         }
+        // 特殊DB的主键解析
         IndexMeta index = tm.getAllIndexes().get(indexName);
         if (index.getIndextype().value() != 0) {
             if ("H2 JDBC Driver".equals(dbmd.getDriverName())) {

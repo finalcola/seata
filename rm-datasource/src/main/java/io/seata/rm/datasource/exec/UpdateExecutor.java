@@ -59,24 +59,31 @@ public class UpdateExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
 
         ArrayList<List<Object>> paramAppenderList = new ArrayList<>();
         TableMeta tmeta = getTableMeta();
+        // 构建快照sql（查询更新前的字段value）
         String selectSQL = buildBeforeImageSQL(tmeta, paramAppenderList);
         return buildTableRecords(tmeta, selectSQL, paramAppenderList);
     }
 
     private String buildBeforeImageSQL(TableMeta tableMeta, ArrayList<List<Object>> paramAppenderList) {
         SQLUpdateRecognizer recognizer = (SQLUpdateRecognizer)sqlRecognizer;
+        // 获取更新的字段
         List<String> updateColumns = recognizer.getUpdateColumns();
         StringBuilder prefix = new StringBuilder("SELECT ");
+        // 查询字段包含主键
         if (!tableMeta.containsPK(updateColumns)) {
             prefix.append(getColumnNameInSQL(tableMeta.getPkName()) + ", ");
         }
+        // from tableName alias
         StringBuilder suffix = new StringBuilder(" FROM " + getFromTableInSQL());
+        // 拼接where条件
         String whereCondition = buildWhereCondition(recognizer, paramAppenderList);
         if (StringUtils.isNotBlank(whereCondition)) {
             suffix.append(" WHERE " + whereCondition);
         }
         suffix.append(" FOR UPDATE");
+        // 拼接完整sql
         StringJoiner selectSQLJoin = new StringJoiner(", ", prefix.toString(), suffix.toString());
+        // 查询更新的字段
         for (String updateColumn : updateColumns) {
             selectSQLJoin.add(updateColumn);
         }
@@ -89,6 +96,7 @@ public class UpdateExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         if (beforeImage == null || beforeImage.size() == 0) {
             return TableRecords.empty(getTableMeta());
         }
+        // 构建更新后的快照sql(查询更新后的字段)
         String selectSQL = buildAfterImageSQL(tmeta, beforeImage);
         TableRecords afterImage = null;
         PreparedStatement pst = null;
@@ -118,6 +126,7 @@ public class UpdateExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         SQLUpdateRecognizer recognizer = (SQLUpdateRecognizer)sqlRecognizer;
         List<String> updateColumns = recognizer.getUpdateColumns();
         StringBuilder prefix = new StringBuilder("SELECT ");
+        // 查询的字段需要包含主键
         if (!tableMeta.containsPK(updateColumns)) {
             // PK should be included.
             prefix.append(getColumnNameInSQL(tableMeta.getPkName()) + ", ");

@@ -169,15 +169,19 @@ public class TableRecords {
      * @throws SQLException the sql exception
      */
     public static TableRecords buildRecords(TableMeta tmeta, ResultSet resultSet) throws SQLException {
+        // 封装结果
         TableRecords records = new TableRecords(tmeta);
         ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
         int columnCount = resultSetMetaData.getColumnCount();
 
+        // 封装resultSet结果
         while (resultSet.next()) {
             List<Field> fields = new ArrayList<>(columnCount);
+            // 解析每行的字段
             for (int i = 1; i <= columnCount; i++) {
                 String colName = resultSetMetaData.getColumnName(i);
                 ColumnMeta col = tmeta.getColumnMeta(colName);
+                // 封装type、name、value
                 Field field = new Field();
                 field.setName(col.getColumnName());
                 if (tmeta.getPkName().equalsIgnoreCase(field.getName())) {

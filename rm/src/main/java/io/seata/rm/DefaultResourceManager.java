@@ -38,6 +38,7 @@ public class DefaultResourceManager implements ResourceManager {
 
     /**
      * all resource managers
+     * 所有配置的实现类
      */
     protected static Map<BranchType, ResourceManager> resourceManagers
         = new ConcurrentHashMap<>();
@@ -98,6 +99,7 @@ public class DefaultResourceManager implements ResourceManager {
             lockKeys);
     }
 
+    // 汇报分支事务状态
     @Override
     public void branchReport(BranchType branchType, String xid, long branchId, BranchStatus status,
                              String applicationData) throws TransactionException {

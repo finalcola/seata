@@ -68,7 +68,9 @@ public abstract class BaseRecognizer implements SQLRecognizer {
             @Override
             public boolean visit(SQLVariantRefExpr x) {
                 if ("?".equals(x.getName())) {
+                    // 获取实际参数
                     ArrayList<Object> oneParamValues = parametersHolder.getParameters()[x.getIndex()];
+                    // 保存到paramAppenderList
                     if (paramAppenderList.size() == 0) {
                         oneParamValues.stream().forEach(t -> paramAppenderList.add(new ArrayList<>()));
                     }
