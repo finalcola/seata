@@ -43,7 +43,7 @@ public class MemoryLocker extends AbstractLocker {
 
     private static final ConcurrentHashMap<String/* resourceId */,
         ConcurrentHashMap<String/* tableName */,
-            ConcurrentHashMap<Integer/* bucketId */,
+            ConcurrentHashMap<Integer/* bucketId(pk.hashCode%BUCKET_PER_TABLE) */,
                 Map<String/* pk */, Long/* transactionId */>>>>
         LOCK_MAP
         = new ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentHashMap<Integer, Map<String, Long>>>>();

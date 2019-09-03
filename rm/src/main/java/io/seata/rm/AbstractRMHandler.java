@@ -94,6 +94,7 @@ public abstract class AbstractRMHandler extends AbstractExceptionHandler
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Branch committing: " + xid + " " + branchId + " " + resourceId + " " + applicationData);
         }
+        // 提交本地分支事务
         BranchStatus status = getResourceManager().branchCommit(request.getBranchType(), xid, branchId, resourceId,
             applicationData);
         response.setXid(xid);
@@ -121,6 +122,7 @@ public abstract class AbstractRMHandler extends AbstractExceptionHandler
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Branch Rollbacking: " + xid + " " + branchId + " " + resourceId);
         }
+        // 回滚
         BranchStatus status = getResourceManager().branchRollback(request.getBranchType(), xid, branchId, resourceId,
             applicationData);
         response.setXid(xid);

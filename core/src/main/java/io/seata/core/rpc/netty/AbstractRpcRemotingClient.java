@@ -110,7 +110,7 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
 
     @Override
     public void init() {
-        // 设置bootstrap的属性和handler
+        // 设置bootstrap的属性和handler（this）
         clientBootstrap.start();
         // 定时任务：从注册中心拉取事务server地址，并保持连接
         timerExecutor.scheduleAtFixedRate(new Runnable() {

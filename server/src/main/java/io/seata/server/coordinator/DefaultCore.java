@@ -68,7 +68,7 @@ public class DefaultCore implements Core {
                                String applicationData, String lockKeys) throws TransactionException {
         // 获取xid对应的全局session
         GlobalSession globalSession = assertGlobalSessionNotNull(xid);
-        // 会获取globalSession的锁
+        // 会获取globalSession的锁（Lock）
         return globalSession.lockAndExcute(() -> {
             // 检查session状态
             if (!globalSession.isActive()) {
@@ -216,7 +216,7 @@ public class DefaultCore implements Core {
                             LOGGER.error("By [{}], failed to commit branch {}", branchStatus, branchSession);
                             continue;
                         } else {
-                            // 删除
+                            // 清除资源，删除
                             SessionHelper.endCommitFailed(globalSession);
                             LOGGER.error("Finally, failed to commit global[{}] since branch[{}] commit failed",
                                 globalSession.getXid(), branchSession.getBranchId());

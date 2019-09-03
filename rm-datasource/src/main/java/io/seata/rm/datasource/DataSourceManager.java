@@ -59,6 +59,7 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DataSourceManager.class);
 
+    // 用于删除已提交分支事务的undoLog
     private ResourceManagerInbound asyncWorker;
 
     private Map<String, Resource> dataSourceCache = new ConcurrentHashMap<>();
@@ -172,6 +173,7 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
         return asyncWorker.branchCommit(branchType, xid, branchId, resourceId, applicationData);
     }
 
+    // 处理分支事务回滚
     @Override
     public BranchStatus branchRollback(BranchType branchType, String xid, long branchId, String resourceId,
                                        String applicationData) throws TransactionException {
@@ -179,11 +181,12 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
         if (dataSourceProxy == null) {
             throw new ShouldNeverHappenException();
         }
+        // 回滚undoLog
         try {
             if(JdbcConstants.ORACLE.equalsIgnoreCase(dataSourceProxy.getDbType())) {
                 UndoLogManagerOracle.undo(dataSourceProxy, xid, branchId);
-            }
-            else if(JdbcConstants.MYSQL.equalsIgnoreCase(dataSourceProxy.getDbType())){
+            } else if (JdbcConstants.MYSQL.equalsIgnoreCase(dataSourceProxy.getDbType())) {
+                // 执行回滚
                 UndoLogManager.undo(dataSourceProxy, xid, branchId);
             } else {
                 throw new NotSupportYetException("DbType[" + dataSourceProxy.getDbType() + "] is not support yet!");

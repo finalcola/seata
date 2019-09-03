@@ -205,6 +205,7 @@ public class ConnectionProxy extends AbstractConnectionProxy {
             // 提交本地事务
             targetConnection.commit();
         } catch (Throwable ex) {
+            // 执行分支事务失败，汇报TC该分支事务一阶段失败
             LOGGER.error("process connectionProxy commit error: {}", ex.getMessage(), ex);
             report(false);
             throw new SQLException(ex);

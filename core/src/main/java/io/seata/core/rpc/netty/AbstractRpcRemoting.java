@@ -237,7 +237,7 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
         futures.put(rpcMessage.getId(), messageFuture);
 
         if (address != null) {
-            // 指定了address，将请求添加到任务队列
+            // 指定了address，将请求添加到任务队列批量发送
             ConcurrentHashMap<String, BlockingQueue<RpcMessage>> map = basketMap;
             BlockingQueue<RpcMessage> basket = map.get(address);
             if (basket == null) {

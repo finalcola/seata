@@ -167,10 +167,11 @@ public final class UndoLogManager {
                 // The entire undo process should run in a local transaction.
                 conn.setAutoCommit(false);
 
-                // Find UNDO LOG
+                // 根据branchId和xid查询undoLog的SQL
                 selectPST = conn.prepareStatement(SELECT_UNDO_LOG_SQL);
                 selectPST.setLong(1, branchId);
                 selectPST.setString(2, xid);
+                // 查询
                 rs = selectPST.executeQuery();
 
                 boolean exists = false;
@@ -180,6 +181,7 @@ public final class UndoLogManager {
                     // It is possible that the server repeatedly sends a rollback request to roll back
                     // the same branch transaction to multiple processes,
                     // ensuring that only the undo_log in the normal state is processed.
+                    // server可能会重复发送回滚请求，所以需要保证只处理状态为simple的undoLog
                     int state = rs.getInt(ClientTableColumnsName.UNDO_LOG_LOG_STATUS);
                     if (!canUndo(state)) {
                         if (LOGGER.isInfoEnabled()) {
@@ -189,6 +191,7 @@ public final class UndoLogManager {
                         return;
                     }
 
+                    // 解析快照
                     String contextString = rs.getString(ClientTableColumnsName.UNDO_LOG_CONTEXT);
                     Map<String, String> context = parseContext(contextString);
                     Blob b = rs.getBlob(ClientTableColumnsName.UNDO_LOG_ROLLBACK_INFO);
@@ -206,12 +209,15 @@ public final class UndoLogManager {
                         if (sqlUndoLogs.size() > 1) {
                             Collections.reverse(sqlUndoLogs);
                         }
+                        // 执行undoLog
                         for (SQLUndoLog sqlUndoLog : sqlUndoLogs) {
                             TableMeta tableMeta = TableMetaCache.getTableMeta(dataSourceProxy, sqlUndoLog.getTableName());
                             sqlUndoLog.setTableMeta(tableMeta);
+                            // 创建对应的executor
                             AbstractUndoExecutor undoExecutor = UndoExecutorFactory.getUndoExecutor(
                                 dataSourceProxy.getDbType(),
                                 sqlUndoLog);
+                            // 将undoLog解析为sql并执行，完成回滚
                             undoExecutor.executeOn(conn);
                         }
                     } finally {
@@ -230,6 +236,7 @@ public final class UndoLogManager {
                 // See https://github.com/seata/seata/issues/489
 
                 if (exists) {
+                    // 如果存在undoLog，则代表回滚完成，可以删除undoLog
                     deleteUndoLog(xid, branchId, conn);
                     conn.commit();
                     if (LOGGER.isInfoEnabled()) {
@@ -237,6 +244,8 @@ public final class UndoLogManager {
                             xid, branchId, State.GlobalFinished.name());
                     }
                 } else {
+                    // undoLog不存在，表示分支事务处理过程中出现了异常
+                    // 插入一条空undoLog表示全局事务已经完成，防止其他程序的本地一阶段事务被正确提交
                     insertUndoLogWithGlobalFinished(xid, branchId, UndoLogParserFactory.getInstance(), conn);
                     conn.commit();
                     if (LOGGER.isInfoEnabled()) {
@@ -405,8 +414,10 @@ public final class UndoLogManager {
         insertUndoLog(xid, branchID, rollbackCtx, undoLogContent, State.Normal, conn);
     }
 
+    // 插入一条空undoLog表示全局事务已经完成
     private static void insertUndoLogWithGlobalFinished(String xid, long branchID, UndoLogParser parser,
                                                         Connection conn) throws SQLException {
+        // 插入内容为空
         insertUndoLog(xid, branchID, buildContext(parser.getName()),
             parser.getDefaultContent(), State.GlobalFinished, conn);
     }

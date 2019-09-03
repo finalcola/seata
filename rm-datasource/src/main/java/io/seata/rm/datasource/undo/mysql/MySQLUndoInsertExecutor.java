@@ -56,6 +56,7 @@ public class MySQLUndoInsertExecutor extends AbstractUndoExecutor {
             throw new ShouldNeverHappenException("Invalid UNDO LOG");
         }
         Row row = afterImageRows.get(0);
+        // 获取主键名称
         Field pkField = row.primaryKeys().get(0);
         return String.format(DELETE_SQL_TEMPLATE,
                              keywordChecker.checkAndReplace(sqlUndoLog.getTableName()),
@@ -64,7 +65,8 @@ public class MySQLUndoInsertExecutor extends AbstractUndoExecutor {
 
     @Override
     protected void undoPrepare(PreparedStatement undoPST, ArrayList<Field> undoValues, Field pkValue)
-        throws SQLException {
+            throws SQLException {
+        // 对于插入操作，只需要设置主键
         undoPST.setObject(1, pkValue.getValue(), pkValue.getType());
     }
 

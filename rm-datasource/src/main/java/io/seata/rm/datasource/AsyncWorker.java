@@ -113,6 +113,7 @@ public class AsyncWorker implements ResourceManagerInbound {
 
     @Override
     public BranchStatus branchCommit(BranchType branchType, String xid, long branchId, String resourceId, String applicationData) throws TransactionException {
+        // 异步二阶段提交
         if (!ASYNC_COMMIT_BUFFER.offer(new Phase2Context(branchType, xid, branchId, resourceId, applicationData))) {
             LOGGER.warn("Async commit buffer is FULL. Rejected branch [" + branchId + "/" + xid + "] will be handled by housekeeping later.");
         }
@@ -141,6 +142,7 @@ public class AsyncWorker implements ResourceManagerInbound {
         }, 10, 1000 * 1, TimeUnit.MILLISECONDS);
     }
 
+    // 删除已提交分支事务的undoLog
     private void doBranchCommits() {
         if (ASYNC_COMMIT_BUFFER.size() == 0) {
             return;
@@ -163,6 +165,7 @@ public class AsyncWorker implements ResourceManagerInbound {
             Connection conn = null;
             DataSourceProxy dataSourceProxy;
             try {
+                // 获取事务对应原Connection
                 try {
                     DataSourceManager resourceManager = (DataSourceManager) DefaultResourceManager.get().getResourceManager(BranchType.AT);
                     dataSourceProxy = resourceManager.get(entry.getKey());
@@ -177,6 +180,7 @@ public class AsyncWorker implements ResourceManagerInbound {
                 List<Phase2Context> contextsGroupedByResourceId = entry.getValue();
                 Set<String> xids = new LinkedHashSet<>(UNDOLOG_DELETE_LIMIT_SIZE);
                 Set<Long> branchIds = new LinkedHashSet<>(UNDOLOG_DELETE_LIMIT_SIZE);
+                // 删除undoLog(分批)
                 for (Phase2Context commitContext : contextsGroupedByResourceId) {
                     xids.add(commitContext.xid);
                     branchIds.add(commitContext.branchId);

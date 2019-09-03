@@ -193,7 +193,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
      */
     public void closeAndClean() throws TransactionException {
         close();
-        // 清除资源，是否持有的锁
+        // 清除资源，释放分支事务持有的锁
         clean();
 
     }

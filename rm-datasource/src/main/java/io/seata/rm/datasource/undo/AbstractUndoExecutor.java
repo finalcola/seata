@@ -93,25 +93,27 @@ public abstract class AbstractUndoExecutor {
     }
 
     /**
-     * Execute on.
+     * Execute on. 将undoLog解析为sql并执行，完成回滚
      *
      * @param conn the conn
      * @throws SQLException the sql exception
      */
     public void executeOn(Connection conn) throws SQLException {
-
+        // 检查是否存在脏数据
         if (IS_UNDO_DATA_VALIDATION_ENABLE && !dataValidationAndGoOn(conn)) {
             return;
         }
 
         try {
+            // 构建undo log的SQL
             String undoSQL = buildUndoSQL();
-
+            // 编译sql
             PreparedStatement undoPST = conn.prepareStatement(undoSQL);
 
             TableRecords undoRows = getUndoRows();
 
             for (Row undoRow : undoRows.getRows()) {
+                // 解析普通字段和主键
                 ArrayList<Field> undoValues = new ArrayList<>();
                 Field pkValue = null;
                 for (Field field : undoRow.getFields()) {
@@ -121,9 +123,9 @@ public abstract class AbstractUndoExecutor {
                         undoValues.add(field);
                     }
                 }
-
+                // 设置prepareStatement参数
                 undoPrepare(undoPST, undoValues, pkValue);
-
+                // 执行更新
                 undoPST.executeUpdate();
             }
 
@@ -149,6 +151,7 @@ public abstract class AbstractUndoExecutor {
     protected void undoPrepare(PreparedStatement undoPST, ArrayList<Field> undoValues, Field pkValue)
         throws SQLException {
         int undoIndex = 0;
+        // 设置普通参数
         for (Field undoValue : undoValues) {
             undoIndex++;
             undoPST.setObject(undoIndex, undoValue.getValue(), undoValue.getType());
@@ -158,6 +161,7 @@ public abstract class AbstractUndoExecutor {
         // UPDATE a SET x=?, y=?, z=? WHERE pk = ?
         // DELETE FROM a WHERE pk = ?
         undoIndex++;
+        // 设置where条件中的主键
         undoPST.setObject(undoIndex, pkValue.getValue(), pkValue.getType());
     }
 
@@ -180,6 +184,7 @@ public abstract class AbstractUndoExecutor {
         TableRecords beforeRecords = sqlUndoLog.getBeforeImage();
         TableRecords afterRecords = sqlUndoLog.getAfterImage();
 
+        // 如果前后快照相同，则不需要进行undo
         // Compare current data with before data
         // No need undo if the before data snapshot is equivalent to the after data snapshot.
         Result<Boolean> beforeEqualsAfterResult = DataCompareUtils.isRecordsEquals(beforeRecords, afterRecords);
@@ -192,14 +197,17 @@ public abstract class AbstractUndoExecutor {
             return false;
         }
 
+        // 检查数据是否是脏数据（查询当前最新的数据与更新后快照进行比较）
         // Validate if data is dirty.
         TableRecords currentRecords = queryCurrentRecords(conn);
         // compare with current data and after image.
         Result<Boolean> afterEqualsCurrentResult = DataCompareUtils.isRecordsEquals(afterRecords, currentRecords);
+        // 如果发生了更新(更新后快照与当前最新数据不同)
         if (!afterEqualsCurrentResult.getResult()) {
 
             // If current data is not equivalent to the after data, then compare the current data with the before 
             // data, too. No need continue to undo if current data is equivalent to the before data snapshot
+            // 比较更新前快照和最新数据，如果相等，则也不需要回滚
             Result<Boolean> beforeEqualsCurrentResult = DataCompareUtils.isRecordsEquals(beforeRecords, currentRecords);
             if (beforeEqualsCurrentResult.getResult()) {
                 if (LOGGER.isInfoEnabled()) {
@@ -220,6 +228,7 @@ public abstract class AbstractUndoExecutor {
                         "oldRows:[" + JSON.toJSONString(afterRecords.getRows()) + "]," +
                         "newRows:[" + JSON.toJSONString(currentRecords.getRows()) + "].");
                 }
+                // 存在脏数据，抛出异常
                 throw new SQLException("Has dirty records when undo.");
             }
         }
@@ -239,7 +248,7 @@ public abstract class AbstractUndoExecutor {
         String pkName = tableMeta.getPkName();
         int pkType = tableMeta.getColumnMeta(pkName).getDataType();
 
-        // pares pk values
+        // 解析主键值
         Object[] pkValues = parsePkValues(getUndoRows());
         if (pkValues.length == 0) {
             return TableRecords.empty(tableMeta);
@@ -256,11 +265,13 @@ public abstract class AbstractUndoExecutor {
         ResultSet checkSet = null;
         TableRecords currentRecords;
         try {
+            // 编译sql并设置参数
             statement = conn.prepareStatement(checkSQL);
             for (int i = 1; i <= pkValues.length; i++) {
                 statement.setObject(i, pkValues[i - 1], pkType);
             }
             checkSet = statement.executeQuery();
+            // 当前值
             currentRecords = TableRecords.buildRecords(tableMeta, checkSet);
         } finally {
             if (checkSet != null) {

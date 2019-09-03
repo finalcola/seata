@@ -54,7 +54,7 @@ public abstract class AbstractLockManager implements LockManager {
         long transactionId = branchSession.getTransactionId();
 
         String lockKey = branchSession.getLockKey();
-
+        // 获取分支事务需要的资源（tableName:pk）
         return collectRowLocks(lockKey, resourceId, xid, transactionId, branchSession.getBranchId());
     }
 
@@ -85,6 +85,7 @@ public abstract class AbstractLockManager implements LockManager {
                                             Long branchID) {
         List<RowLock> locks = new ArrayList<RowLock>();
 
+        // lockKey组成==> tableName:pk;tableName:pk;tableName:pk
         String[] tableGroupedLockKeys = lockKey.split(";");
         for (String tableGroupedLockKey : tableGroupedLockKeys) {
             int idx = tableGroupedLockKey.indexOf(":");
