@@ -48,6 +48,7 @@ public final class ConfigurationFactory {
 
     private static final Configuration DEFAULT_FILE_INSTANCE = new FileConfiguration(
         REGISTRY_CONF_PREFIX + REGISTRY_CONF_SUFFIX);
+    // registry.conf
     public static final Configuration CURRENT_FILE_INSTANCE = (envValue == null || DEFAULT_ENV_VALUE.equals(envValue))
         ? DEFAULT_FILE_INSTANCE : new FileConfiguration(REGISTRY_CONF_PREFIX + "-" + envValue
         + REGISTRY_CONF_SUFFIX);
@@ -72,10 +73,12 @@ public final class ConfigurationFactory {
         return instance;
     }
 
+    // 加载配置类
     private static Configuration buildConfiguration() {
         ConfigType configType = null;
         String configTypeName = null;
         try {
+            // 读取registry.conf中的config.type属性(配置中心类型)
             configTypeName = CURRENT_FILE_INSTANCE.getConfig(
                 ConfigurationKeys.FILE_ROOT_CONFIG + ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR
                     + ConfigurationKeys.FILE_ROOT_TYPE);
@@ -83,6 +86,7 @@ public final class ConfigurationFactory {
         } catch (Exception e) {
             throw new NotSupportYetException("not support register type: " + configTypeName, e);
         }
+        // 文件类型，读取config.file.name属性(文件配置地址)
         if (ConfigType.File == configType) {
             String pathDataId = ConfigurationKeys.FILE_ROOT_CONFIG + ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR
                 + FILE_TYPE + ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR
@@ -90,6 +94,7 @@ public final class ConfigurationFactory {
             String name = CURRENT_FILE_INSTANCE.getConfig(pathDataId);
             return new FileConfiguration(name);
         } else {
+            // 加载对应的配置中心
             return EnhancedServiceLoader.load(ConfigurationProvider.class, Objects.requireNonNull(configType).name())
                 .provide();
         }

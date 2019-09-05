@@ -93,7 +93,7 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
         if (RootContext.getXID() != null) {
             throw new IllegalStateException();
         }
-        // 发送GlobalBeginRequest，开启全局事务，获取返回的xid
+        // 发送GlobalBeginRequest，开启全局事务，获取返回的xid（集群中选择一个地址）
         xid = transactionManager.begin(null, null, name, timeout);
         // 更新状态
         status = GlobalStatus.Begin;

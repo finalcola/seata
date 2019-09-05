@@ -81,6 +81,7 @@ public class Server {
         ShutdownHook.getInstance().addDisposable(coordinator);
 
         //127.0.0.1 and 0.0.0.0 are not valid here.
+        // 设置ip和port
         if (NetUtil.isValidIp(parameterParser.getHost(), false)) {
             XID.setIpAddress(parameterParser.getHost());
         } else {

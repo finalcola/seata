@@ -41,6 +41,7 @@ public class RegistryFactory {
      */
     public static RegistryService getInstance() {
         RegistryType registryType;
+        // 注册中心类型
         String registryTypeName = ConfigurationFactory.CURRENT_FILE_INSTANCE.getConfig(
             ConfigurationKeys.FILE_ROOT_REGISTRY + ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR
                 + ConfigurationKeys.FILE_ROOT_TYPE);
@@ -49,6 +50,7 @@ public class RegistryFactory {
         } catch (Exception exx) {
             throw new NotSupportYetException("not support registry type: " + registryTypeName);
         }
+        // 加载对应的注册中心
         if (RegistryType.File == registryType) {
             return FileRegistryServiceImpl.getInstance();
         } else {

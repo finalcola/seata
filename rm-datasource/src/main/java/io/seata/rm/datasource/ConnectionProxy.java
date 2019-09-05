@@ -182,7 +182,7 @@ public class ConnectionProxy extends AbstractConnectionProxy {
         context.reset();
     }
 
-    // 处理全局事务的提交
+    // 处理分支事务的提交
     private void processGlobalTransactionCommit() throws SQLException {
         try {
             // 注册分支事务

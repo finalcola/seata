@@ -177,9 +177,10 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
         }
 
         try {
-            // 启动
+            // 启动netty
             ChannelFuture future = this.serverBootstrap.bind(host, listenPort).sync();
             LOGGER.info("Server started ... ");
+            // 注册到注册中心
             RegistryFactory.getInstance().register(new InetSocketAddress(XID.getIpAddress(), XID.getPort()));
             initialized.set(true);
             future.channel().closeFuture().sync();

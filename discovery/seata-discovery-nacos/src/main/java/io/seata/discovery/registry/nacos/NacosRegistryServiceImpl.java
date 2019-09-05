@@ -75,6 +75,7 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
     @Override
     public void register(InetSocketAddress address) throws Exception {
         validAddress(address);
+        // 注册临时节点
         getNamingInstance().registerInstance(PRO_SERVER_ADDR_KEY, address.getAddress().getHostAddress(), address.getPort(), getClusterName());
     }
 
@@ -113,10 +114,12 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
     @Override
     public List<InetSocketAddress> lookup(String key) throws Exception {
         Configuration config = ConfigurationFactory.getInstance();
+        // 配置的集群名称(service.vgroup_mapping.${key} 对应的配置)
         String clusterName = config.getConfig(PREFIX_SERVICE_ROOT + CONFIG_SPLIT_CHAR + PREFIX_SERVICE_MAPPING + key);
         if (null == clusterName) {
             return null;
         }
+        // 新增listener
         if (!LISTENER_SERVICE_MAP.containsKey(clusterName)) {
             List<String> clusters = new ArrayList<>();
             clusters.add(clusterName);

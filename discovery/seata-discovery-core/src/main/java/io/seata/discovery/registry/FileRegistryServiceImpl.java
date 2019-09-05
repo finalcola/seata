@@ -27,7 +27,7 @@ import java.util.List;
 
 /**
  * The type File registry service.
- *
+ * 文件注册服务
  * @author jimin.jm @alibaba-inc.com
  * @date 2019 /02/12
  */
@@ -79,16 +79,20 @@ public class FileRegistryServiceImpl implements RegistryService<ConfigChangeList
 
     @Override
     public List<InetSocketAddress> lookup(String key) throws Exception {
+        // service.vgroup_mapping.key
         String clusterName = CONFIG.getConfig(PREFIX_SERVICE_ROOT + CONFIG_SPLIT_CHAR + PREFIX_SERVICE_MAPPING + key);
         if (null == clusterName) {
             return null;
         }
+        // 查询service.clusterName.grouplist配置
         String endpointStr = CONFIG.getConfig(
             PREFIX_SERVICE_ROOT + CONFIG_SPLIT_CHAR + clusterName + POSTFIX_GROUPLIST);
         if (StringUtils.isNullOrEmpty(endpointStr)) {
             throw new IllegalArgumentException(clusterName + POSTFIX_GROUPLIST + " is required");
         }
+        // ;分割
         String[] endpoints = endpointStr.split(ENDPOINT_SPLIT_CHAR);
+        // 解析ip和port
         List<InetSocketAddress> inetSocketAddresses = new ArrayList<>();
         for (String endpoint : endpoints) {
             String[] ipAndPort = endpoint.split(IP_PORT_SPLIT_CHAR);
