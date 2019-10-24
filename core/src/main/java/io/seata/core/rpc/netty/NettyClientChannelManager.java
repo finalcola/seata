@@ -42,15 +42,18 @@ import java.util.function.Function;
 class NettyClientChannelManager {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(NettyClientChannelManager.class);
-    
+
+    // 存放创建channel时的锁对象
     private final ConcurrentMap<String, Object> channelLocks = new ConcurrentHashMap<>();
     
     private final ConcurrentMap<String, NettyPoolKey> poolKeyMap = new ConcurrentHashMap<>();
     
     private final ConcurrentMap<String, Channel> channels = new ConcurrentHashMap<>();
-    
+
+    // 连接池
     private final GenericKeyedObjectPool<NettyPoolKey, Channel> nettyClientKeyPool;
-    
+
+    // 创建连接池key的Lamdal
     private Function<String, NettyPoolKey> poolKeyFunction;
     
     NettyClientChannelManager(final NettyPoolableFactory keyPoolableFactory, final Function<String, NettyPoolKey> poolKeyFunction,
@@ -209,6 +212,7 @@ class NettyClientChannelManager {
             }
             // 获取channel（通过NettyPoolableFactory创建）
             channelFromPool = nettyClientKeyPool.borrowObject(poolKeyMap.get(serverAddress));
+            // 保存连接
             channels.put(serverAddress, channelFromPool);
         } catch (Exception exx) {
             LOGGER.error(FrameworkErrorCode.RegisterRM.getErrCode(), "register RM failed.", exx);

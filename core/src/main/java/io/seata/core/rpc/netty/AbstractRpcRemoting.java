@@ -75,7 +75,7 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
     protected final PositiveAtomicCounter idGenerator = new PositiveAtomicCounter();
 
     /**
-     * The Futures.
+     * The Futures.保存发送msg的future
      */
     protected final ConcurrentHashMap<Integer, MessageFuture> futures = new ConcurrentHashMap<>();
     /**
@@ -231,6 +231,7 @@ public abstract class AbstractRpcRemoting extends ChannelDuplexHandler implement
         rpcMessage.setCompressor(ProtocolConstants.CONFIGURED_COMPRESSOR);
         rpcMessage.setBody(msg);
 
+        // 记录future
         final MessageFuture messageFuture = new MessageFuture();
         messageFuture.setRequestMessage(rpcMessage);
         messageFuture.setTimeout(timeout);

@@ -35,8 +35,10 @@ public class ShutdownHook extends Thread {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ShutdownHook.class);
 
+    // 单例
     private static final ShutdownHook SHUTDOWN_HOOK = new ShutdownHook("ShutdownHook");
 
+    // 保存系统关闭时，需要调用destroy方法的对象
     private Set<Disposable> disposables = new TreeSet<>();
 
     private final AtomicBoolean destroyed = new AtomicBoolean(false);

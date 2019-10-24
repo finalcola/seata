@@ -91,6 +91,7 @@ public class ProtocolV1Decoder extends LengthFieldBasedFrameDecoder {
         return decoded;
     }
 
+    // 解码
     public Object decodeFrame(ByteBuf frame) {
         byte b0 = frame.readByte();
         byte b1 = frame.readByte();

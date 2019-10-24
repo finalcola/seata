@@ -87,7 +87,7 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
         clientBootstrap = new RpcClientBootstrap(nettyClientConfig, eventExecutorGroup, this, transactionRole);
         // client连接管理器（连接池）
         clientChannelManager = new NettyClientChannelManager(
-            new NettyPoolableFactory(this, clientBootstrap), getPoolKeyFunction(), nettyClientConfig);
+            new NettyPoolableFactory(this, clientBootstrap), getPoolKeyFunction()/*连接池的key*/, nettyClientConfig);
     }
     
     public NettyClientChannelManager getClientChannelManager() {

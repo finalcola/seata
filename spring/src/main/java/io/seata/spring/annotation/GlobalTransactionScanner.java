@@ -187,15 +187,19 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Global Transaction Clients are initialized. ");
         }
+        // 注册tm和rm的shutdownHook
         registerSpringShutdownHook();
 
     }
 
+    // 注册hook
     private void registerSpringShutdownHook() {
         if (applicationContext instanceof ConfigurableApplicationContext) {
             ((ConfigurableApplicationContext)applicationContext).registerShutdownHook();
             ShutdownHook.removeRuntimeShutdownHook();
         }
+
+        // 系统关闭时，销毁tm和rm
         ShutdownHook.getInstance().addDisposable(TmRpcClient.getInstance(applicationId, txServiceGroup));
         ShutdownHook.getInstance().addDisposable(RmRpcClient.getInstance(applicationId, txServiceGroup));
     }
@@ -299,7 +303,7 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
             }
             return;
         }
-        // 初始话tm和rm
+        // 初始化tm和rm
         initClient();
 
     }

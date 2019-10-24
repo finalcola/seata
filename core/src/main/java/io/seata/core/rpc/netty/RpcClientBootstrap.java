@@ -57,13 +57,16 @@ public class RpcClientBootstrap implements RemotingClient {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRpcRemotingClient.class);
     private final NettyClientConfig nettyClientConfig;
+    // netty client
     private final Bootstrap bootstrap = new Bootstrap();
+    // worker EventLoopGroup
     private final EventLoopGroup eventLoopGroupWorker;
     private EventExecutorGroup defaultEventExecutorGroup;
     private AbstractChannelPoolMap<InetSocketAddress, FixedChannelPool> clientChannelPool;
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private static final String THREAD_PREFIX_SPLIT_CHAR = "_";
     private final ChannelHandler channelHandler;
+    // 角色(tm\rm\server)
     private final NettyPoolKey.TransactionRole transactionRole;
     
     public RpcClientBootstrap(NettyClientConfig nettyClientConfig, final EventExecutorGroup eventExecutorGroup,
@@ -80,6 +83,7 @@ public class RpcClientBootstrap implements RemotingClient {
         this.eventLoopGroupWorker = new NioEventLoopGroup(selectorThreadSizeThreadSize,
             new NamedThreadFactory(getThreadPrefix(this.nettyClientConfig.getClientSelectorThreadPrefix()),
                 selectorThreadSizeThreadSize));
+        // 默认null
         this.defaultEventExecutorGroup = eventExecutorGroup;
         this.channelHandler = channelHandler;
     }
@@ -91,6 +95,7 @@ public class RpcClientBootstrap implements RemotingClient {
                 new NamedThreadFactory(getThreadPrefix(nettyClientConfig.getClientWorkerThreadPrefix()),
                     nettyClientConfig.getClientWorkerThreads()));
         }
+        // 配置netty
         this.bootstrap.group(this.eventLoopGroupWorker).channel(
             nettyClientConfig.getClientChannelClazz()).option(
             ChannelOption.TCP_NODELAY, true).option(ChannelOption.SO_KEEPALIVE, true).option(

@@ -28,6 +28,7 @@ import java.net.InetSocketAddress;
 
 /**
  * The type Netty key poolable factory.
+ * 工厂对象，为连接池创建新连接
  *
  * @author jimin.jm @alibaba-inc.com
  * @date 2018 /11/19
@@ -73,6 +74,7 @@ public class NettyPoolableFactory implements KeyedPoolableObjectFactory<NettyPoo
             if (!isResponseSuccess(response, key.getTransactionRole())) {
                 rpcRemotingClient.onRegisterMsgFail(key.getAddress(), tmpChannel, response, key.getMessage());
             } else {
+                // 发送成功后，通知client进行处理
                 channelToServer = tmpChannel;
                 rpcRemotingClient.onRegisterMsgSuccess(key.getAddress(), tmpChannel, response,
                     key.getMessage());
